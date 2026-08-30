@@ -10,8 +10,9 @@ def test_configuration_separates_discovery_filters_signals_and_scoring():
         "search",
         "hard_filters",
         "signals",
-        "legacy_scoring",
+        "pre_score",
     }
+    assert "legacy_scoring" not in config
     assert config["search"]["query_groups"]
     assert all(
         "weight" not in group and group["queries"]
@@ -19,20 +20,22 @@ def test_configuration_separates_discovery_filters_signals_and_scoring():
     )
     assert config["signals"]["role_terms"]
     assert config["signals"]["technologies"]
-    technology_terms = {
-        term
-        for group in config["signals"]["technologies"]
-        for term in group["terms"]
+    technology_names = {
+        definition["name"] for definition in config["signals"]["technologies"]
     }
-    assert technology_terms >= {
+    assert technology_names >= {
         "python",
-        "power platform",
-        "power automate",
+        "power_platform",
+        "power_automate",
         "n8n",
-        "rest api",
+        "rest_api",
         "etl",
-        "power bi",
+        "power_bi",
         "azure",
         "databricks",
         "sql",
     }
+    assert sum(
+        config["pre_score"][name]["max_score"]
+        for name in ("seniority", "technologies", "role", "location")
+    ) == 100

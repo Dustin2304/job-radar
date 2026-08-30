@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from api.models import JobResult, ScrapeResponse
+from api.models import JobResult, PreScoreResult, ScoreComponent, ScrapeResponse
 
 
 def test_scrape_response_default_failed_searches():
@@ -66,4 +66,20 @@ def test_job_result_description_max_length():
             profile="Software Engineering",
             in_watchlist=False,
             skills_required=[],
+        )
+
+
+def test_score_component_rejects_score_above_maximum():
+    with pytest.raises(ValidationError):
+        ScoreComponent(score=31, max_score=30)
+
+
+def test_pre_score_total_must_equal_components():
+    with pytest.raises(ValidationError):
+        PreScoreResult(
+            total=99,
+            seniority=ScoreComponent(score=25, max_score=25),
+            technologies=ScoreComponent(score=30, max_score=30),
+            role=ScoreComponent(score=25, max_score=25),
+            location=ScoreComponent(score=20, max_score=20),
         )

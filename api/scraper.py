@@ -23,7 +23,7 @@ from .compatibility import to_v1_job_result
 from .filters import apply_filter_result, evaluate_hard_filters
 from .models import Job, JobResult, ScrapeResponse
 from .normalization import clean_string, merge_search_queries, normalize_job
-from .scorer import score_job
+from .scorer import apply_pre_score, calculate_pre_score
 from .sources.jobspy import fetch_jobs
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s", stream=sys.stderr)
@@ -108,7 +108,7 @@ def run_scrape() -> ScrapeResponse:
     hours_old: int = int(search_cfg.get("hours_old", 168))
     watchlist: list[str] = [c["name"] for c in cfg.get("companies", [])]
     signals: dict = cfg.get("signals", {})
-    legacy_scoring: dict = cfg.get("legacy_scoring", {})
+    pre_score_config: dict = cfg.get("pre_score", {})
     config_excludes = cfg.get("hard_filters", {}).get("excluded_title_terms", [])
 
     seen_urls: set[str] = set()
@@ -213,6 +213,13 @@ def run_scrape() -> ScrapeResponse:
 
                     seen_urls.add(raw_url)
                     seen_title_company.add(dedup_key)
+
+                    pre_score_result = calculate_pre_score(
+                        canonical_job,
+                        signals=signals,
+                        pre_score_config=pre_score_config,
+                    )
+                    canonical_job = apply_pre_score(canonical_job, pre_score_result)
                     canonical_jobs_by_url[raw_url] = canonical_job
 
                     job = to_v1_job_result(
@@ -221,14 +228,6 @@ def run_scrape() -> ScrapeResponse:
                         in_watchlist=company_in_watchlist(company, watchlist),
                         level=infer_level(job_level_raw, title),
                     )
-                    score, reason = score_job(
-                        job,
-                        signals=signals,
-                        legacy_scoring=legacy_scoring,
-                    )
-                    job.score = score
-                    job.score_reason = reason
-
                     all_jobs.append(job)
 
                 time.sleep(1.5)

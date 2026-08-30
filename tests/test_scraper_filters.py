@@ -6,6 +6,45 @@ from api.scraper import (
     run_scrape,
 )
 
+TEST_SIGNALS = {
+    "role_terms": [
+        {"name": "digitalization", "terms": ["digital transformation", "digitalization"]},
+        {"name": "process_analysis", "terms": ["business process analyst"]},
+        {"name": "consulting", "terms": ["consultant"]},
+        {"name": "supply_chain", "terms": ["supply chain"]},
+    ],
+    "technologies": [
+        {"name": "python", "terms": ["python"]},
+        {"name": "fastapi", "terms": ["fastapi"]},
+    ],
+}
+TEST_PRE_SCORE = {
+    "seniority": {
+        "max_score": 25,
+        "explicit_junior_score": 25,
+        "neutral_score": 17,
+        "positive_title_terms": ["junior"],
+    },
+    "technologies": {"max_score": 30, "points_per_match": 5},
+    "role": {
+        "max_score": 25,
+        "title_points_per_match": 6,
+        "description_points_per_match": 3,
+    },
+    "location": {
+        "max_score": 20,
+        "preferred_location_terms": ["karlsruhe"],
+        "remote_terms": ["remote"],
+        "hybrid_terms": ["hybrid"],
+        "remote_score": 20,
+        "preferred_hybrid_score": 20,
+        "preferred_onsite_score": 17,
+        "other_hybrid_score": 10,
+        "other_onsite_score": 5,
+        "unknown_score": 10,
+    },
+}
+
 
 def test_clean_str_handles_nan_variants():
     assert _clean_str("nan") == ""
@@ -44,17 +83,8 @@ def test_run_scrape_keeps_v1_response_contract(monkeypatch):
             },
             "companies": [],
             "hard_filters": {"excluded_title_terms": []},
-            "signals": {
-                "role_terms": [{"points": 25, "terms": ["python developer"]}],
-                "technologies": [{"points": 8, "terms": ["python", "fastapi"]}],
-                "junior_title_terms": ["junior"],
-            },
-            "legacy_scoring": {
-                "base_points": 30,
-                "technology_points_cap": 25,
-                "watchlist_bonus": 8,
-                "junior_bonus": 5,
-            },
+            "signals": TEST_SIGNALS,
+            "pre_score": TEST_PRE_SCORE,
         },
     )
     monkeypatch.setattr(
@@ -105,10 +135,15 @@ def test_run_scrape_keeps_v1_response_contract(monkeypatch):
         "profile",
         "in_watchlist",
         "skills_required",
+        "pre_score",
+        "pre_score_components",
         "score",
         "score_reason",
     }
     assert response.jobs[0].title == "Junior Python Developer"
+    assert response.jobs[0].pre_score is not None
+    assert response.jobs[0].score == round(response.jobs[0].pre_score)
+    assert response.jobs[0].pre_score_components is not None
 
 
 def test_discovered_jobs_do_not_require_query_term_in_title(monkeypatch):
@@ -128,12 +163,8 @@ def test_discovered_jobs_do_not_require_query_term_in_title(monkeypatch):
             },
             "companies": [],
             "hard_filters": {"excluded_title_terms": []},
-            "signals": {
-                "role_terms": [],
-                "technologies": [],
-                "junior_title_terms": ["junior"],
-            },
-            "legacy_scoring": {"base_points": 30, "junior_bonus": 5},
+            "signals": TEST_SIGNALS,
+            "pre_score": TEST_PRE_SCORE,
         },
     )
     titles = [
@@ -162,6 +193,7 @@ def test_discovered_jobs_do_not_require_query_term_in_title(monkeypatch):
 
     response = run_scrape()
 
-    assert [job.title for job in response.jobs] == titles[:4]
-    assert all(job.score in {30, 35} for job in response.jobs)
+    assert {job.title for job in response.jobs} == set(titles[:4])
+    assert all(job.pre_score is not None for job in response.jobs)
+    assert all(job.pre_score_components is not None for job in response.jobs)
     assert response.hard_filter_rejections == {"excluded_seniority": 1}

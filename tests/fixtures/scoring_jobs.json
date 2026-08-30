@@ -1,0 +1,76 @@
+[
+  {
+    "name": "strong_automation_match",
+    "raw_job": {
+      "id": "fixture-a",
+      "site": "linkedin",
+      "title": "Junior Automation Engineer",
+      "company": "Example Automation GmbH",
+      "location": "Karlsruhe, Germany",
+      "remote_type": "Hybrid",
+      "job_url": "https://example.com/jobs/a",
+      "description": "Build digital transformation and process optimization solutions with Python, REST APIs and Azure. Integrate systems through API integration."
+    },
+    "expected_total": {"min": 70, "max": 100},
+    "expected_technologies": ["python", "rest_api", "azure"],
+    "expected_roles": ["automation", "digitalization", "process_optimization", "integration"]
+  },
+  {
+    "name": "business_process_match",
+    "raw_job": {
+      "id": "fixture-b",
+      "site": "indeed",
+      "title": "Business Process Analyst",
+      "company": "Example Processes AG",
+      "location": "Karlsruhe, Germany",
+      "job_url": "https://example.com/jobs/b",
+      "description": "Support process optimization across operational teams."
+    },
+    "expected_total": {"min": 35, "max": 65},
+    "expected_technologies": [],
+    "expected_roles": ["process_analysis", "process_optimization"]
+  },
+  {
+    "name": "supply_chain_digitalization",
+    "raw_job": {
+      "id": "fixture-c",
+      "site": "linkedin",
+      "title": "Supply Chain Digitalization Specialist",
+      "company": "Example Logistics GmbH",
+      "location": "Stuttgart, Germany",
+      "job_url": "https://example.com/jobs/c",
+      "description": "Create Power BI reports and analyze supply-chain data with SQL."
+    },
+    "expected_total": {"min": 35, "max": 65},
+    "expected_technologies": ["power_bi", "sql"],
+    "expected_roles": ["digitalization", "supply_chain"]
+  },
+  {
+    "name": "missing_information",
+    "raw_job": {
+      "id": "fixture-d",
+      "site": "indeed",
+      "title": "Specialist",
+      "company": "Example GmbH",
+      "location": null,
+      "job_url": "https://example.com/jobs/d",
+      "description": null
+    },
+    "expected_total": {"min": 20, "max": 35},
+    "expected_technologies": [],
+    "expected_roles": []
+  },
+  {
+    "name": "hard_filtered_director",
+    "raw_job": {
+      "id": "fixture-e",
+      "site": "linkedin",
+      "title": "Director Process Automation",
+      "company": "Example Leadership SE",
+      "location": "Karlsruhe, Germany",
+      "job_url": "https://example.com/jobs/e",
+      "description": "Lead automation strategy."
+    },
+    "expected_hard_filter": "excluded_seniority"
+  }
+]

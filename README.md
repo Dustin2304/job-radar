@@ -5,13 +5,13 @@ A personal job radar for junior-to-mid roles that scrapes Indeed and LinkedIn vi
 - Scrapes listings from Indeed and LinkedIn through `python-jobspy`.
 - Runs broad discovery queries from `config.yaml` across configured locations.
 - Excludes only clear seniority and unsuitable employment-type title patterns before scoring.
-- Adds a temporary rule-based `0-100` score as information without using it as an acceptance gate.
+- Calculates an explainable component-based `0-100` pre-score without using it as an acceptance gate.
 - Serves fresh, cached, and aggregated results through FastAPI endpoints backed by a local JSON cache.
 
 ## Architecture
 ```text
 config.yaml --> scraper orchestration --> JobSpy source --> normalization --> canonical Job
-                                                                            --> hard filter --> V1 adapter --> legacy score --> /jobs
+                                                                            --> hard filter --> pre-score --> V1 adapter --> /jobs
                                                                                                               |
                                                                                                       JSON cache
                                                                                                               |
@@ -86,20 +86,28 @@ pytest tests/ -v
 {
   "jobs": [
     {
-      "title": "AI Engineer",
+      "title": "Junior Automation Engineer",
       "company": "Example GmbH",
       "location": "Karlsruhe, Germany",
       "url": "https://example.com/jobs/1",
       "source": "linkedin",
       "date_posted": "2026-04-20",
       "is_remote": false,
-      "description": "Build internal LLM and Python services for document workflows.",
+      "description": "Build digital transformation and process optimization solutions with Python, REST APIs and Azure integrations.",
       "level": "Entry",
       "profile": "AI & Data Engineering",
       "in_watchlist": false,
       "skills_required": [],
-      "score": 85,
-      "score_reason": "Ai Engineer, LLM, Python, Entry-Level"
+      "pre_score": 72,
+      "pre_score_components": {
+        "total": 72,
+        "seniority": {"score": 25, "max_score": 25, "matched_signals": ["junior"], "notes": ["explicit junior or entry-level signal in title"]},
+        "technologies": {"score": 15, "max_score": 30, "matched_signals": ["python", "azure", "rest_api"], "notes": ["description: python", "description: azure", "description: rest_api"]},
+        "role": {"score": 15, "max_score": 25, "matched_signals": ["automation", "digitalization", "process_optimization", "integration"], "notes": ["title: automation", "description: digitalization", "description: process_optimization", "description: integration"]},
+        "location": {"score": 17, "max_score": 20, "matched_signals": ["preferred_region", "onsite"], "notes": ["onsite role in preferred region"]}
+      },
+      "score": 72,
+      "score_reason": "Seniority 25/25, Technologies 15/30, Role 15/25, Location 17/20"
     },
     {
       "title": "Backend Developer",
@@ -114,15 +122,24 @@ pytest tests/ -v
       "profile": "Software Development",
       "in_watchlist": true,
       "skills_required": [],
-      "score": 76,
-      "score_reason": "Backend Developer, FastAPI, Docker, Watchlist, Mid-Level"
+      "pre_score": 50,
+      "pre_score_components": {
+        "total": 50,
+        "seniority": {"score": 17, "max_score": 25, "matched_signals": [], "notes": ["no explicit seniority signal; neutral score applied"]},
+        "technologies": {"score": 10, "max_score": 30, "matched_signals": ["fastapi", "docker"], "notes": ["description: fastapi", "description: docker"]},
+        "role": {"score": 3, "max_score": 25, "matched_signals": ["automation"], "notes": ["description: automation"]},
+        "location": {"score": 20, "max_score": 20, "matched_signals": ["remote"], "notes": ["remote work model detected"]}
+      },
+      "score": 50,
+      "score_reason": "Seniority 17/25, Technologies 10/30, Role 3/25, Location 20/20"
     }
   ],
   "total_found": 124,
   "total_after_filter": 2,
   "scraped_at": "2026-04-21T08:30:00+00:00",
   "profiles_searched": ["AI & Data Engineering", "Software Development"],
-  "failed_searches": 0
+  "failed_searches": 0,
+  "hard_filter_rejections": {"excluded_seniority": 8}
 }
 ```
 
@@ -132,15 +149,18 @@ pytest tests/ -v
 | `search.query_groups[].queries` | Broad discovery queries; groups only preserve a legacy result label |
 | `search.locations`, `results_per_query`, `hours_old` | JobSpy search scope |
 | `hard_filters.excluded_title_terms` | Adds explicit project-specific exclusions to the explainable defaults |
-| `signals.role_terms`, `signals.technologies` | Positive evidence for the temporary legacy score; never acceptance requirements |
-| `legacy_scoring` | Temporary base score, caps, and bonuses until the explainable V2 pre-score replaces it |
-| `companies` | Optional watchlist; matching jobs get `in_watchlist: true` and a score bonus |
+| `signals.role_terms`, `signals.technologies` | Named positive evidence retained in the pre-score components; never acceptance requirements |
+| `pre_score.seniority` | Explicit junior evidence and neutral fallback, maximum 25 points |
+| `pre_score.technologies` | Points per unique named technology signal, capped at 30 |
+| `pre_score.role` | Stronger title evidence and weaker description evidence, capped at 25 |
+| `pre_score.location` | Transparent remote, hybrid, preferred-region, other-region, and unknown scores, capped at 20 |
+| `companies` | Optional watchlist metadata; career preference is not part of the V2.4 pre-score |
 
 ## Scoring At a Glance
-Each job currently starts at `30` points. Configured role signals add up to `35`, technology signals add up to `25`, watchlist matches add `8`, and junior or entry-style titles add `5`. Discovery groups do not modify the score, and the score does not remove jobs from the API result. This temporary score will be replaced by an explainable component-based pre-score in a later milestone.
+Every accepted job receives four stored components: seniority `0–25`, technologies `0–30`, role signals `0–25`, and location/work model `0–20`. Each component contains its score, maximum, matched signal names, and notes. Missing seniority and location information receive explicit neutral values rather than automatic rejection. The API retains every hard-filter-accepted job regardless of its pre-score. The old `score` and `score_reason` fields mirror the new result only for compatibility with the existing n8n workflow.
 
 ## Tests
-The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, V1 compatibility, positive scoring signals, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
+The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, representative scoring fixtures, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
 
 ## Limitations
 - Focused on German/DACH search coverage, currently configured around Karlsruhe, Germany.
@@ -154,13 +174,13 @@ The test suite covers canonical normalization, stable IDs, JobSpy isolation, str
 api/
   main.py          # FastAPI app + endpoints
   scraper.py       # broad search orchestration and hard-filter integration
-  scorer.py        # rule-based scoring
+  scorer.py        # explainable component-based pre-score
   models.py        # canonical and V1 response models
   normalization.py # raw source data to canonical Job
   compatibility.py # canonical Job to existing V1 API response
   filters.py        # explainable high-confidence hard exclusions
   sources/jobspy.py # JobSpy-specific fetching
-config.yaml     # discovery, hard filters, positive signals, legacy scoring
+config.yaml     # discovery, hard filters, positive signals, pre-score rules
 n8n/            # sanitized workflow + n8n-specific docs
 tests/          # pytest suite
 pyproject.toml

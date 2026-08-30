@@ -140,61 +140,92 @@ hard_filters:
   excluded_title_terms: []
 
 signals:
-  # Positive evidence for the temporary legacy score. These terms never decide
-  # whether a job survives discovery or hard filtering.
+  # Keywords are bounded evidence. They never gate discovery or hard filtering.
+  technologies:
+    - name: "python"
+      terms: ["python"]
+    - name: "power_automate"
+      terms: ["power automate"]
+    - name: "power_platform"
+      terms: ["power platform"]
+    - name: "n8n"
+      terms: ["n8n"]
+    - name: "azure"
+      terms: ["azure"]
+    - name: "sql"
+      terms: ["sql", "postgresql"]
+    - name: "rest_api"
+      terms: ["rest api", "rest apis", "restful api", "restful apis"]
+    - name: "etl"
+      terms: ["etl"]
+    - name: "power_bi"
+      terms: ["power bi"]
+    - name: "databricks"
+      terms: ["databricks"]
+    - name: "azure_data_factory"
+      terms: ["azure data factory"]
+    - name: "fastapi"
+      terms: ["fastapi"]
+    - name: "docker"
+      terms: ["docker"]
+    - name: "typescript"
+      terms: ["typescript"]
+    - name: "machine_learning"
+      terms: ["machine learning", "mlops"]
+    - name: "llm"
+      terms: ["llm", "llms", "large language model", "large language models", "generative ai", "genai"]
+
   role_terms:
-    - points: 35
-      terms: ["ai engineer", "ml engineer", "llm engineer", "genai developer", "ki entwickler", "ai developer", "prompt engineer", "mlops"]
-    - points: 30
-      terms: ["data scientist", "data engineer", "machine learning", "deep learning", "nlp engineer", "computer vision", "analytics engineer"]
-    - points: 25
-      terms: ["software engineer", "software developer", "backend developer", "backend engineer", "fullstack developer", "full stack engineer", "python developer", "typescript developer", "platform engineer"]
-    - points: 22
-      terms: ["data analyst", "bi developer", "business intelligence", "data warehouse", "data platform", "reporting analyst"]
-    - points: 20
-      terms: ["cloud engineer", "devops engineer", "rpa developer", "automatisierung entwickler", "api developer"]
-    - points: 20
-      terms: ["it consultant", "digitalisierungsmanager", "digitalization manager", "business analyst it", "implementation consultant"]
-    - points: 18
-      terms: ["iot developer", "mes entwickler", "industrie 4.0", "ot engineer", "digital factory", "smart manufacturing"]
-    - points: 18
-      terms: ["supply chain it", "logistik it", "wms developer", "warehouse management"]
-    - points: 18
-      terms: ["finance it", "controlling it", "financial analyst it", "fp&a analyst", "accounting software"]
-    - points: 18
-      terms: ["martech", "marketing technology", "e-commerce developer", "crm developer", "marketing automation", "growth engineer"]
-    - points: 10
-      terms: ["sales engineer", "technical sales", "pre-sales consultant", "business development", "solution sales"]
-    - points: 8
-      terms: ["performance marketing", "product marketing", "content manager"]
-    - points: 8
-      terms: ["operations analyst", "procurement analyst"]
+    - name: "automation"
+      terms: ["automation", "automatisierung", "process automation", "workflow automation"]
+    - name: "digitalization"
+      terms: ["digitalization", "digitalisierung", "digital transformation"]
+    - name: "data_engineering"
+      terms: ["data engineer", "data engineering", "data pipeline"]
+    - name: "business_intelligence"
+      terms: ["business intelligence", "bi developer", "reporting", "dashboard"]
+    - name: "process_analysis"
+      terms: ["business process analyst", "process analysis", "prozessanalyse"]
+    - name: "process_optimization"
+      terms: ["process optimization", "process improvement", "prozessoptimierung"]
+    - name: "technical_project"
+      terms: ["technical project", "it project", "technical project management"]
+    - name: "integration"
+      terms: ["system integration", "api integration", "integration"]
+    - name: "analytics"
+      terms: ["analytics", "data analysis", "data analyst"]
+    - name: "consulting"
+      terms: ["consultant", "consulting", "beratung"]
+    - name: "supply_chain"
+      terms: ["supply chain", "logistics", "logistik"]
+
+pre_score:
+  seniority:
+    max_score: 25
+    explicit_junior_score: 25
+    neutral_score: 17
+    positive_title_terms: ["junior", "entry level", "entry-level", "graduate", "berufseinsteiger", "absolvent", "trainee"]
 
   technologies:
-    - points: 12
-      terms: ["llm", "large language model", "generative ai", "genai", "gpt", "langchain", "rag", "copilot", "openai", "azure ai"]
-    - points: 10
-      terms: ["machine learning", "deep learning", "neural network", "pytorch", "tensorflow", "mlops", "hugging face"]
-    - points: 8
-      terms: ["python", "fastapi", "django", "flask"]
-    - points: 8
-      terms: ["typescript", "node.js", "react", "vue"]
-    - points: 6
-      terms: ["docker", "kubernetes", "azure", "aws", "gcp", "cloud"]
-    - points: 6
-      terms: ["rest api", "microservices", "ci/cd", "devops"]
-    - points: 5
-      terms: ["power platform", "power automate", "n8n", "automatisierung", "automation", "rpa", "workflow"]
-    - points: 4
-      terms: ["sql", "postgresql", "mongodb", "etl", "databricks", "azure data factory", "data pipeline", "power bi"]
+    max_score: 30
+    points_per_match: 5
 
-  junior_title_terms: ["junior", "entry", "trainee", "werkstudent"]
+  role:
+    max_score: 25
+    title_points_per_match: 6
+    description_points_per_match: 3
 
-legacy_scoring:
-  base_points: 30
-  technology_points_cap: 25
-  watchlist_bonus: 8
-  junior_bonus: 5
+  location:
+    max_score: 20
+    preferred_location_terms: ["karlsruhe"]
+    remote_terms: ["remote", "homeoffice", "home office"]
+    hybrid_terms: ["hybrid", "hybride", "mobiles arbeiten"]
+    remote_score: 20
+    preferred_hybrid_score: 20
+    preferred_onsite_score: 17
+    other_hybrid_score: 10
+    other_onsite_score: 5
+    unknown_score: 10
 
-# Optional watchlist. Entries only add positive evidence to the legacy score.
+# Optional watchlist metadata. Career preference is intentionally not part of V2.4.
 companies: []

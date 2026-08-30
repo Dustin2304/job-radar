@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal, cast
 
 from .models import Job, JobResult
+from .scorer import summarize_pre_score
 
 
 def to_v1_job_result(
@@ -29,6 +30,10 @@ def to_v1_job_result(
         profile=profile,
         in_watchlist=in_watchlist,
         skills_required=[],
+        pre_score=job.pre_score,
+        pre_score_components=job.pre_score_components,
+        score=round(job.pre_score or 0),
+        score_reason=summarize_pre_score(job.pre_score_components),
     )
 
 

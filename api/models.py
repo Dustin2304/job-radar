@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class CategoryMatch(BaseModel):
@@ -14,13 +14,34 @@ class ProfileMatch(BaseModel):
     similarity: float
 
 
-class ScoreComponents(BaseModel):
-    profile: float = 0
-    category: float = 0
-    seniority: float = 0
-    skills: float = 0
-    location: float = 0
-    bonus: float = 0
+class ScoreComponent(BaseModel):
+    score: float = Field(ge=0)
+    max_score: float = Field(gt=0)
+    matched_signals: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def score_does_not_exceed_maximum(self):
+        if self.score > self.max_score:
+            raise ValueError("component score must not exceed max_score")
+        return self
+
+
+class PreScoreResult(BaseModel):
+    total: float = Field(ge=0, le=100)
+    seniority: ScoreComponent
+    technologies: ScoreComponent
+    role: ScoreComponent
+    location: ScoreComponent
+
+    @model_validator(mode="after")
+    def total_matches_components(self):
+        components = (self.seniority, self.technologies, self.role, self.location)
+        if abs(sum(component.max_score for component in components) - 100) > 1e-6:
+            raise ValueError("pre-score component maxima must sum to 100")
+        if abs(sum(component.score for component in components) - self.total) > 1e-6:
+            raise ValueError("pre-score total must equal the component scores")
+        return self
 
 
 class FilterReason(BaseModel):
@@ -60,7 +81,7 @@ class Job(BaseModel):
     rejection_reasons: list[FilterReason] = Field(default_factory=list)
 
     pre_score: float | None = None
-    score_components: ScoreComponents | None = None
+    pre_score_components: PreScoreResult | None = None
     llm_score: float | None = None
     llm_recommendation: str | None = None
     review_status: str = "NEW"
@@ -82,8 +103,13 @@ class JobResult(BaseModel):
         default_factory=list,
         description="List of required skills extracted from the posting; empty if not determinable",
     )
-    score: int = Field(default=0, description="Relevance score 0-100 computed by rule-based scorer")
-    score_reason: str = Field(default="", description="Short human-readable reason for the score")
+    pre_score: float | None = Field(default=None, description="Explainable deterministic score from 0 to 100")
+    pre_score_components: PreScoreResult | None = Field(
+        default=None,
+        description="Stored components and evidence used to calculate the pre-score",
+    )
+    score: int = Field(default=0, description="Legacy n8n-compatible alias of the rounded pre-score")
+    score_reason: str = Field(default="", description="Legacy n8n-compatible pre-score component summary")
 
 
 class ScrapeResponse(BaseModel):
@@ -105,7 +131,8 @@ __all__ = [
     "FilterResult",
     "Job",
     "JobResult",
+    "PreScoreResult",
     "ProfileMatch",
-    "ScoreComponents",
+    "ScoreComponent",
     "ScrapeResponse",
 ]
