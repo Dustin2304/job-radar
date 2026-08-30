@@ -26,9 +26,6 @@ dist/
 .env.*
 !.env.example
 
-# Claude / IDE
-.claude/settings.local.json
-
 # OS
 .DS_Store
 Thumbs.db
@@ -38,3 +35,5 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+Plan.md
