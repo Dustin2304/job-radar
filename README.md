@@ -116,7 +116,7 @@ pytest tests/ -v
         {"name": "process_management", "similarity": 0.76, "title_similarity": 0.70, "description_similarity": 0.80}
       ],
       "embedding_input": "title_and_description",
-      "embedding_model": "qwen3-embedding-0.6b",
+      "embedding_model": "text-embedding-qwen3-embedding-0.6b",
       "embedding_status": "success",
       "score": 72,
       "score_reason": "Seniority 25/25, Technologies 15/30, Role 15/25, Location 17/20"
@@ -205,6 +205,12 @@ The weights and English task instruction are configurable. Qwen3-Embedding-0.6B 
 
 If the server cannot be reached, the model is unavailable, or a response is invalid, each job remains in the result with empty `categories` and `embedding_status` set to `unavailable` or `error`. Successful results expose `embedding_input` as either `title_only` or `title_and_description` and identify the configured model. A similarity threshold is deliberately absent until real-job calibration has been completed.
 
+The first live Qwen validation is documented in [`docs/semantic-validation-v2.5.1.md`](docs/semantic-validation-v2.5.1.md). It includes five reference titles and 30 deduplicated real jobs. The current finding is that the model is viable, while the automation and process-management descriptions need calibration before Career Profiles are added. The reusable evaluator prints results without persisting raw descriptions or vectors:
+
+```powershell
+.venv\Scripts\python.exe scripts\evaluate_semantic_categories.py --live --results-per-query 5 --limit 30
+```
+
 ## Description Data Quality
 
 Canonical jobs retain `description_status`, normalized `description_length`, and `description_source`. Missing descriptions never reject a job. Every scrape reports overall and per-source availability through `description_stats`.
@@ -249,7 +255,11 @@ api/
 config.yaml     # discovery, filters, signals, scoring, and embedding settings
 config/
   categories.yaml # semantic category descriptions
+docs/
+  semantic-validation-v2.5.1.md # first real-model validation report
 n8n/            # sanitized workflow + n8n-specific docs
+scripts/
+  evaluate_semantic_categories.py # reproducible reference/live semantic evaluation
 tests/          # pytest suite
 pyproject.toml
 ```

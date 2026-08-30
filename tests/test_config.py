@@ -42,6 +42,7 @@ def test_configuration_separates_discovery_filters_signals_and_scoring():
         for name in ("seniority", "technologies", "role", "location")
     ) == 100
     assert config["embeddings"]["enabled"] is True
+    assert config["embeddings"]["model"] == "text-embedding-qwen3-embedding-0.6b"
     assert config["embeddings"]["dimensions"] == 1024
     assert config["embeddings"]["title_weight"] == 0.4
     assert config["embeddings"]["description_weight"] == 0.6
