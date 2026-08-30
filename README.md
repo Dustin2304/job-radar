@@ -270,6 +270,31 @@ The feature remains disabled and has no selected model in `config.yaml`. V2.7.2 
 compare at least two local models against manually labelled real jobs before one is
 selected or pipeline integration begins.
 
+### Real-World LLM Benchmark Dataset
+
+V2.7.2a freezes a private, deliberately balanced 24-job benchmark before any chat
+model output is inspected. It contains six manual labels for each recommendation
+class (`strong_match`, `review`, `weak_match`, and `reject`), with 18 complete job
+descriptions and six `title_only` preliminary cases. Manual labels include reference
+scores, expected strengths, mandatory and optional gaps, experience requirements,
+experience-gap judgments, edge-case tags, and notes.
+
+Complete postings and labels remain ignored under `data/evaluation/`. The committed
+schema validates the exact class and description balance, matching job/label IDs,
+the frozen candidate-profile hash, successful category/profile embeddings, one shared
+embedding model, and the absence of prior LLM results. Capture hints never become
+manual labels, and no chat model is called by either dataset script.
+
+```powershell
+.venv\Scripts\python.exe scripts\capture_llm_benchmark_pool.py
+.venv\Scripts\python.exe scripts\finalize_llm_benchmark.py
+```
+
+The frozen local dataset currently covers 14 must-have-gap cases, 12 nice-to-have-gap
+cases, eight explicit required-experience cases, three preferred-experience cases,
+six title-only cases, and several generic or misleading-title cases. Model selection
+and repeated evaluation belong to V2.7.2b.
+
 ## Description Data Quality
 
 Canonical jobs retain `description_status`, normalized `description_length`, and `description_source`. Missing descriptions never reject a job. Every scrape reports overall and per-source availability through `description_stats`.
@@ -286,7 +311,7 @@ A live sample on 2026-08-30 produced:
 No request errors or HTTP 429 responses occurred in these small samples. The enriched LinkedIn run was roughly 12 times slower than the equivalent normal run, so `linkedin_fetch_description` remains disabled by default. The planned embedding rule is explicit: missing descriptions use `title_only`; available descriptions use `title_and_description`. Blanket enrichment is deferred in favor of targeted enrichment after a later preselection step.
 
 ## Tests
-The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, semantic cosine similarity and weighting, cached category and career-profile vectors, regression-dataset validation and ranking metrics, independent embedding-service failure states, strict LLM output validation and retry behavior, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
+The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, semantic cosine similarity and weighting, cached category and career-profile vectors, regression-dataset validation and ranking metrics, private LLM-benchmark balance and freeze validation, independent embedding-service failure states, strict LLM output validation and retry behavior, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
 
 ## Limitations
 - Focused on German/DACH search coverage, currently configured around Karlsruhe, Germany.
@@ -307,6 +332,7 @@ api/
   scorer.py        # explainable component-based pre-score
   embeddings.py    # LM Studio client + cached category/profile matching
   llm_evaluation.py # structured prompt, chat client, validation, and nonfatal statuses
+  llm_benchmark.py # private benchmark schemas, balance, and freeze validation
   models.py        # canonical and V1 response models
   normalization.py # raw source data to canonical Job
   compatibility.py # canonical Job to existing V1 API response
@@ -332,6 +358,8 @@ scripts/
   evaluate_career_profiles.py # career-profile benchmark and optional live sample
   capture_career_profile_snapshot.py # ignored real-job snapshot capture
   label_career_profile_snapshot.py # apply local manual labels
+  capture_llm_benchmark_pool.py # targeted private pre-model job capture
+  finalize_llm_benchmark.py # freeze selected jobs and validate manual labels
 tests/          # pytest suite
 pyproject.toml
 ```
