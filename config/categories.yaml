@@ -1,8 +1,10 @@
 categories:
   automation:
     description: >
-      Roles focused on automating business processes, workflows and applications
-      through software, APIs, scripting, integration tools or low-code platforms.
+      Technical automation engineering and implementation roles using workflow
+      engines, RPA, low-code platforms, scripts, APIs, system integrations,
+      orchestration tools and automated data flows rather than business process
+      analysis or documentation.
 
   data:
     description: >
@@ -16,8 +18,10 @@ categories:
 
   process_management:
     description: >
-      Roles involving business process analysis, optimization, digital
-      transformation and operational excellence.
+      Business process analyst, business analyst, workflow management and
+      continuous improvement specialist roles in business process management
+      (BPM), process design, process governance, process ownership, operational
+      excellence and organizational process optimization.
 
   project_management:
     description: >
@@ -26,8 +30,9 @@ categories:
 
   supply_chain:
     description: >
-      Roles involving logistics, supply chain management, planning, material flows
-      and supply-chain processes.
+      Supply chain, logistics, procurement and planning roles focused on demand
+      planning, supply planning, production planning, purchasing, fulfillment,
+      forecasting, inventory, material planning and distribution.
 
   consulting:
     description: >
