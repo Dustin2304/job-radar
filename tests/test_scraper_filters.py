@@ -1,9 +1,7 @@
 import pandas as pd
 
 from api.scraper import (
-    EXCLUDE_TITLE_KEYWORDS,
     _clean_str,
-    _compile_exclude_pattern,
     infer_level,
     run_scrape,
 )
@@ -15,16 +13,6 @@ def test_clean_str_handles_nan_variants():
     assert _clean_str(None) == ""
     assert _clean_str(float("nan")) == ""
     assert _clean_str(" Hello   World ") == "Hello World"
-
-
-def test_exclude_pattern_word_boundaries():
-    pattern = _compile_exclude_pattern(EXCLUDE_TITLE_KEYWORDS)
-
-    assert pattern.search("Senior Engineer")
-    assert pattern.search("Sr. Developer")
-    assert pattern.search("Praktikum Backend")
-    assert not pattern.search("Leadership Platform Engineer")
-    assert pattern.search("Experienced Python Developer")
 
 
 def test_infer_level_from_title():
@@ -69,16 +57,28 @@ def test_run_scrape_keeps_v1_response_contract(monkeypatch):
                 "description": "Python backend development with FastAPI.",
                 "date_posted": "2026-08-30",
                 "is_remote": False,
-            }
+            },
+            {
+                "id": "job-2",
+                "site": "indeed",
+                "title": "Director Python Developer",
+                "company": "Example AG",
+                "location": "Karlsruhe, Germany",
+                "job_url": "https://example.com/jobs/2",
+                "description": "Python leadership role.",
+                "date_posted": "2026-08-30",
+                "is_remote": False,
+            },
         ],
     )
     monkeypatch.setattr("api.scraper.time.sleep", lambda _seconds: None)
 
     response = run_scrape()
 
-    assert response.total_found == 1
+    assert response.total_found == 2
     assert response.total_after_filter == 1
     assert response.failed_searches == 0
+    assert response.hard_filter_rejections == {"excluded_seniority": 1}
     assert response.jobs[0].model_dump().keys() == {
         "title",
         "company",

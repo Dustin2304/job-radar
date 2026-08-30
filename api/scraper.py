@@ -11,6 +11,7 @@ import logging
 import re
 import sys
 import time
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 import yaml
 
 from .compatibility import to_v1_job_result
+from .filters import apply_filter_result, evaluate_hard_filters
 from .models import Job, JobResult, ScrapeResponse
 from .normalization import clean_string, merge_search_queries, normalize_job
 from .scorer import score_job
@@ -34,85 +36,6 @@ NON_IT_PROFILES = {
     "Marketing & Content",
     "Logistics & Operations",
 }
-
-EXCLUDE_TITLE_KEYWORDS = [
-    "senior",
-    "(senior)",
-    "sr.",
-    "sr ",
-    "lead",
-    "tech lead",
-    "team lead",
-    "principal",
-    "staff engineer",
-    "head of",
-    "director",
-    "vp ",
-    "c-level",
-    "cto",
-    "cio",
-    "cpo",
-    "cso",
-    "chief",
-    "vice president",
-    "expert",
-    "experienced",
-    "werkstudent",
-    "werkstudierende",
-    "working student",
-    "praktikum",
-    "praktikant",
-    "internship",
-    "intern",
-    "pflichtpraktikum",
-    "praxissemester",
-    "hiwi",
-    "tutor",
-    "thesis",
-    "bachelor thesis",
-    "master thesis",
-    "abschlussarbeit",
-    "duales studium",
-    "ausbildung",
-    "trainee",
-    "apprentice",
-    "helpdesk",
-    "help desk",
-    "it support",
-    "it-support",
-    "1st level",
-    "2nd level",
-    "3rd level",
-    "first level",
-    "second level",
-    "systemadministrator",
-    "sysadmin",
-    "system administrator",
-    "it administrator",
-    "it-administrator",
-    "sap berater",
-    "sap consultant",
-    "sap-berater",
-    "salesforce",
-    "servicenow",
-    "oracle consultant",
-    "sharepoint",
-    "steuerberater",
-    "wirtschaftsprüfer",
-    "steuerfachangestellte",
-    "außendienst",
-    "sales manager",
-    "vertriebsmitarbeiter",
-    "pflegefachkraft",
-    "krankenpflege",
-    "medizinische fachangestellte",
-    "fahrer",
-    "lkw",
-    "kraftfahrer",
-    "freelance only",
-    "selbstständig",
-    "freiberuflich",
-]
 
 LEVEL_MAP = {
     "internship": "Entry",
@@ -148,17 +71,6 @@ _LEVEL_MID_PATTERN = re.compile(
 def _clean_str(value) -> str:
     """Normalize scraper cell values: strip, collapse whitespace, reject 'nan'/'none'/'null'."""
     return clean_string(value)
-
-
-def _compile_exclude_pattern(keywords: list[str]) -> re.Pattern[str]:
-    parts: list[str] = []
-    for keyword in keywords:
-        escaped = re.escape(keyword)
-        if re.fullmatch(r"[A-Za-zÄÖÜäöüß0-9]+", keyword):
-            parts.append(rf"\b{escaped}\b")
-        else:
-            parts.append(rf"(?<![a-zäöüß0-9]){escaped}(?![a-zäöüß0-9])")
-    return re.compile("|".join(parts), re.IGNORECASE)
 
 
 def load_config() -> dict:
@@ -204,13 +116,13 @@ def run_scrape() -> ScrapeResponse:
     threshold_it: int = scoring_cfg.get("threshold_it", 0)
     threshold_non_it: int = scoring_cfg.get("threshold_non_it", threshold_it)
 
-    config_excludes = [kw.lower() for kw in cfg.get("filters", {}).get("exclude_title_keywords", [])]
-    all_exclude_keywords = list(set(EXCLUDE_TITLE_KEYWORDS + config_excludes))
-    exclude_pattern = _compile_exclude_pattern(all_exclude_keywords)
+    config_excludes = cfg.get("filters", {}).get("exclude_title_keywords", [])
 
     seen_urls: set[str] = set()
     seen_title_company: set[tuple[str, str]] = set()
     canonical_jobs_by_url: dict[str, Job] = {}
+    hard_filtered_jobs_by_id: dict[str, Job] = {}
+    hard_filter_counts: Counter[str] = Counter()
     all_jobs: list[JobResult] = []
     total_raw = 0
     failed_searches = 0
@@ -270,6 +182,13 @@ def run_scrape() -> ScrapeResponse:
                         continue
 
                     canonical_job = normalize_job(raw_job, keyword)
+                    previous_rejection = hard_filtered_jobs_by_id.get(canonical_job.id)
+                    if previous_rejection is not None:
+                        hard_filtered_jobs_by_id[canonical_job.id] = merge_search_queries(
+                            previous_rejection, canonical_job.search_queries
+                        )
+                        continue
+
                     if raw_url in seen_urls:
                         known_job = canonical_jobs_by_url.get(raw_url)
                         if known_job is not None:
@@ -279,7 +198,21 @@ def run_scrape() -> ScrapeResponse:
                         continue
 
                     title = canonical_job.title
-                    if exclude_pattern.search(title):
+                    filter_result = evaluate_hard_filters(
+                        canonical_job,
+                        extra_excluded_title_terms=config_excludes,
+                    )
+                    canonical_job = apply_filter_result(canonical_job, filter_result)
+                    if not filter_result.accepted:
+                        hard_filtered_jobs_by_id[canonical_job.id] = canonical_job
+                        hard_filter_counts.update(
+                            reason.code for reason in filter_result.reasons
+                        )
+                        log.info(
+                            "Hard filter rejected job_id=%s reasons=%s",
+                            canonical_job.id,
+                            [reason.model_dump() for reason in filter_result.reasons],
+                        )
                         continue
 
                     # Positive profile match: title must contain at least one profile keyword.
@@ -320,9 +253,10 @@ def run_scrape() -> ScrapeResponse:
     all_jobs.sort(key=lambda j: j.score, reverse=True)
 
     log.info(
-        "Scrape summary: raw=%d | kept=%d | dropped_score=%d | dropped_profile=%d | failed=%d",
+        "Scrape summary: raw=%d | kept=%d | hard_filtered=%d | dropped_score=%d | dropped_profile=%d | failed=%d",
         total_raw,
         len(all_jobs),
+        len(hard_filtered_jobs_by_id),
         dropped_by_score,
         dropped_by_profile_mismatch,
         failed_searches,
@@ -335,6 +269,7 @@ def run_scrape() -> ScrapeResponse:
         scraped_at=datetime.now(timezone.utc),
         profiles_searched=[p["name"] for p in profiles],
         failed_searches=failed_searches,
+        hard_filter_rejections=dict(hard_filter_counts),
     )
 
 

@@ -4,7 +4,7 @@ A personal job radar for junior-to-mid roles that scrapes Indeed and LinkedIn vi
 ## What This Project Does
 - Scrapes listings from Indeed and LinkedIn through `python-jobspy`.
 - Runs profile-based keyword searches from `config.yaml` across configured locations.
-- Excludes senior, internship, trainee, and other unwanted title patterns before scoring.
+- Excludes only clear seniority and unsuitable employment-type title patterns before scoring.
 - Scores remaining jobs with a rule-based `0-100` relevance model and applies profile-specific thresholds.
 - Serves fresh, cached, and aggregated results through FastAPI endpoints backed by a local JSON cache.
 
@@ -141,14 +141,14 @@ pytest tests/ -v
 | `scoring.threshold_it` | Minimum score for IT profiles; lower results are dropped |
 | `scoring.threshold_non_it` | Minimum score for non-IT profiles with a higher hurdle |
 | `profiles[].name`, `keywords`, `weight` | Search profile definition; `weight < 1.0` marks non-IT fallback profiles and reduces the effective score |
-| `filters.exclude_title_keywords` | Extends the hardcoded senior and internship title filters |
+| `filters.exclude_title_keywords` | Adds explicit project-specific title exclusions to the explainable default hard filters |
 | `companies` | Optional watchlist; matching jobs get `in_watchlist: true` and a score bonus |
 
 ## Scoring At a Glance
 Each job starts at `30` points. Title matches add up to `35`, description matches add up to `25`, watchlist matches add `8`, and junior or entry-style titles add `5`. The profile `weight` is applied to the accumulated score, which lets non-IT fallback profiles rank lower without separate logic. All scoring rules live in `api/scorer.py` and can be adjusted without changing the API surface.
 
 ## Tests
-11 unit tests cover scorer weighting, filter word boundaries, `nan` normalization, level inference, and model defaults. Run them with `pytest tests/ -v`.
+The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, V1 compatibility, scorer weighting, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
 
 ## Limitations
 - Focused on German/DACH search coverage, currently configured around Karlsruhe, Germany.
@@ -165,6 +165,7 @@ api/
   models.py        # canonical and V1 response models
   normalization.py # raw source data to canonical Job
   compatibility.py # canonical Job to existing V1 API response
+  filters.py        # explainable high-confidence hard exclusions
   sources/jobspy.py # JobSpy-specific fetching
 config.yaml     # profiles, locations, thresholds
 n8n/            # sanitized workflow + n8n-specific docs

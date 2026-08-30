@@ -23,6 +23,17 @@ class ScoreComponents(BaseModel):
     bonus: float = 0
 
 
+class FilterReason(BaseModel):
+    code: str
+    field: str | None = None
+    value: str | None = None
+
+
+class FilterResult(BaseModel):
+    accepted: bool
+    reasons: list[FilterReason] = Field(default_factory=list)
+
+
 class Job(BaseModel):
     """Canonical source-independent representation used inside the application."""
 
@@ -46,7 +57,7 @@ class Job(BaseModel):
     profile_matches: list[ProfileMatch] = Field(default_factory=list)
 
     hard_filter_passed: bool = True
-    rejection_reasons: list[str] = Field(default_factory=list)
+    rejection_reasons: list[FilterReason] = Field(default_factory=list)
 
     pre_score: float | None = None
     score_components: ScoreComponents | None = None
@@ -82,10 +93,16 @@ class ScrapeResponse(BaseModel):
     scraped_at: datetime = Field(description="UTC timestamp of when the scrape was executed")
     profiles_searched: list[str] = Field(description="Search profiles that were active during this scrape run")
     failed_searches: int = Field(default=0, description="Number of search attempts that raised an exception")
+    hard_filter_rejections: dict[str, int] = Field(
+        default_factory=dict,
+        description="Counts of unique jobs rejected by each explainable hard-filter reason",
+    )
 
 
 __all__ = [
     "CategoryMatch",
+    "FilterReason",
+    "FilterResult",
     "Job",
     "JobResult",
     "ProfileMatch",
