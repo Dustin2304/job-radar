@@ -29,19 +29,32 @@ def test_run_scrape_keeps_v1_response_contract(monkeypatch):
     monkeypatch.setattr(
         "api.scraper.load_config",
         lambda: {
-            "profiles": [
-                {
-                    "name": "Software Development",
-                    "weight": 1.0,
-                    "keywords": ["Python Developer"],
-                }
-            ],
-            "locations": [
-                {"city": "Karlsruhe", "country": "Germany", "radius_km": 100}
-            ],
+            "search": {
+                "query_groups": [
+                    {
+                        "name": "Software Development",
+                        "queries": ["Python Developer"],
+                    }
+                ],
+                "locations": [
+                    {"city": "Karlsruhe", "country": "Germany", "radius_km": 100}
+                ],
+                "results_per_query": 50,
+                "hours_old": 168,
+            },
             "companies": [],
-            "scoring": {"threshold_it": 50, "threshold_non_it": 60},
-            "filters": {"exclude_title_keywords": []},
+            "hard_filters": {"excluded_title_terms": []},
+            "signals": {
+                "role_terms": [{"points": 25, "terms": ["python developer"]}],
+                "technologies": [{"points": 8, "terms": ["python", "fastapi"]}],
+                "junior_title_terms": ["junior"],
+            },
+            "legacy_scoring": {
+                "base_points": 30,
+                "technology_points_cap": 25,
+                "watchlist_bonus": 8,
+                "junior_bonus": 5,
+            },
         },
     )
     monkeypatch.setattr(
@@ -96,3 +109,59 @@ def test_run_scrape_keeps_v1_response_contract(monkeypatch):
         "score_reason",
     }
     assert response.jobs[0].title == "Junior Python Developer"
+
+
+def test_discovered_jobs_do_not_require_query_term_in_title(monkeypatch):
+    monkeypatch.setattr(
+        "api.scraper.load_config",
+        lambda: {
+            "search": {
+                "query_groups": [
+                    {
+                        "name": "Broad Digital Roles",
+                        "queries": ["process automation"],
+                    }
+                ],
+                "locations": [{"city": "Karlsruhe", "country": "Germany"}],
+                "results_per_query": 10,
+                "hours_old": 168,
+            },
+            "companies": [],
+            "hard_filters": {"excluded_title_terms": []},
+            "signals": {
+                "role_terms": [],
+                "technologies": [],
+                "junior_title_terms": ["junior"],
+            },
+            "legacy_scoring": {"base_points": 30, "junior_bonus": 5},
+        },
+    )
+    titles = [
+        "Junior Consultant Digital Transformation",
+        "Business Process Analyst",
+        "Supply Chain Digitalization Specialist",
+        "SAP Process Consultant",
+        "Director Process Automation",
+    ]
+    monkeypatch.setattr(
+        "api.scraper.fetch_jobs",
+        lambda **kwargs: [
+            {
+                "id": f"job-{index}",
+                "site": "linkedin",
+                "title": title,
+                "company": "Example GmbH",
+                "location": "Karlsruhe, Germany",
+                "job_url": f"https://example.com/jobs/{index}",
+                "description": "",
+            }
+            for index, title in enumerate(titles)
+        ],
+    )
+    monkeypatch.setattr("api.scraper.time.sleep", lambda _seconds: None)
+
+    response = run_scrape()
+
+    assert [job.title for job in response.jobs] == titles[:4]
+    assert all(job.score in {30, 35} for job in response.jobs)
+    assert response.hard_filter_rejections == {"excluded_seniority": 1}

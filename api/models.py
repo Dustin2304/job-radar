@@ -76,7 +76,7 @@ class JobResult(BaseModel):
     is_remote: bool = Field(description="Whether the position is fully or partially remote")
     description: str = Field(max_length=500, description="Short excerpt of the job description (max 500 characters)")
     level: str = Field(description="Seniority level inferred from the posting")
-    profile: str = Field(description="Search profile this job was matched to")
+    profile: str = Field(description="Legacy API label for the discovery query group")
     in_watchlist: bool = Field(default=False, description="Whether the job has been saved to the watchlist")
     skills_required: list[str] = Field(
         default_factory=list,
@@ -91,7 +91,7 @@ class ScrapeResponse(BaseModel):
     total_found: int = Field(description="Total number of raw results fetched before any filtering")
     total_after_filter: int = Field(description="Number of jobs remaining after deduplication and filters")
     scraped_at: datetime = Field(description="UTC timestamp of when the scrape was executed")
-    profiles_searched: list[str] = Field(description="Search profiles that were active during this scrape run")
+    profiles_searched: list[str] = Field(description="Legacy API field containing active discovery group names")
     failed_searches: int = Field(default=0, description="Number of search attempts that raised an exception")
     hard_filter_rejections: dict[str, int] = Field(
         default_factory=dict,

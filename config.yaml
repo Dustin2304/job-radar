@@ -1,165 +1,200 @@
-locations:
-  - city: "Karlsruhe"
-    radius_km: 100
-    country: "Germany"
-  # Remote-only search removed intentionally
+search:
+  results_per_query: 50
+  hours_old: 168
 
-# Optional watchlist - add entries like "- name: \"Company GmbH\"" to flag jobs as in_watchlist.
+  locations:
+    - city: "Karlsruhe"
+      radius_km: 100
+      country: "Germany"
+
+  # Groups organize discovery and preserve the legacy API label. They are not
+  # semantic categories and do not prove that a discovered job belongs to them.
+  query_groups:
+    - name: "AI & Data Engineering"
+      queries:
+        - "AI Engineer"
+        - "ML Engineer"
+        - "Data Scientist"
+        - "Data Engineer"
+        - "LLM Engineer"
+        - "GenAI Developer"
+        - "Machine Learning"
+        - "Deep Learning"
+        - "NLP Engineer"
+        - "Computer Vision"
+        - "MLOps"
+        - "Prompt Engineer"
+        - "AI Developer"
+        - "KI Entwickler"
+
+    - name: "Software Development"
+      queries:
+        - "Software Developer"
+        - "Software Engineer"
+        - "Backend Developer"
+        - "Backend Engineer"
+        - "Fullstack Developer"
+        - "Full Stack Engineer"
+        - "Python Developer"
+        - "TypeScript Developer"
+        - "API Developer"
+        - "Cloud Engineer"
+        - "DevOps Engineer"
+        - "Platform Engineer"
+        - "Automatisierung Entwickler"
+        - "RPA Developer"
+
+    - name: "Data & Analytics"
+      queries:
+        - "Data Analyst"
+        - "Business Intelligence"
+        - "BI Developer"
+        - "Analytics Engineer"
+        - "Data Platform"
+        - "Data Warehouse"
+        - "Reporting Analyst"
+
+    - name: "IT Consulting & Business Interface"
+      queries:
+        - "IT Consultant"
+        - "Digitalisierungsmanager"
+        - "Digitalization Manager"
+        - "Business Analyst IT"
+        - "Prozessberater IT"
+        - "ERP Consultant Junior"
+        - "SAP Junior"
+        - "Implementation Consultant"
+        - "Solution Architect Junior"
+        - "IT Projektmanager Junior"
+
+    - name: "IT & Production / IoT"
+      queries:
+        - "MES Entwickler"
+        - "IoT Developer"
+        - "Industrie 4.0"
+        - "OT Engineer"
+        - "Produktions IT"
+        - "Manufacturing Engineer IT"
+        - "Digital Factory"
+        - "Smart Manufacturing"
+        - "Automatisierungstechnik IT"
+
+    - name: "IT & Supply Chain / Logistics"
+      queries:
+        - "Supply Chain IT"
+        - "Logistik IT"
+        - "Warehouse Management System"
+        - "WMS Developer"
+        - "ERP Logistik"
+        - "Supply Chain Analyst"
+        - "Demand Planning IT"
+
+    - name: "IT & Finance / Controlling"
+      queries:
+        - "Finance IT"
+        - "Controlling IT"
+        - "Financial Analyst IT"
+        - "Treasury IT"
+        - "Accounting Software"
+        - "FP&A Analyst"
+        - "Revenue Operations"
+
+    - name: "IT & Marketing / E-Commerce"
+      queries:
+        - "Marketing Technology"
+        - "MarTech"
+        - "E-Commerce Developer"
+        - "Digital Marketing Analyst"
+        - "Growth Engineer"
+        - "CRM Developer"
+        - "Marketing Automation"
+        - "Web Analytics"
+
+    - name: "Sales & Business Development"
+      queries:
+        - "Sales Engineer"
+        - "Technical Sales"
+        - "Business Development"
+        - "Account Manager Tech"
+        - "Pre-Sales Consultant"
+        - "Solution Sales"
+
+    - name: "Marketing & Content"
+      queries:
+        - "Content Manager"
+        - "Marketing Manager"
+        - "Performance Marketing"
+        - "Brand Manager"
+        - "Product Marketing"
+
+    - name: "Logistics & Operations"
+      queries:
+        - "Logistics Manager Junior"
+        - "Operations Analyst"
+        - "Supply Chain Manager"
+        - "Procurement Analyst"
+
+hard_filters:
+  # Project-specific additions only. Built-in high-confidence exclusions live
+  # in api/filters.py and still return structured reasons.
+  excluded_title_terms: []
+
+signals:
+  # Positive evidence for the temporary legacy score. These terms never decide
+  # whether a job survives discovery or hard filtering.
+  role_terms:
+    - points: 35
+      terms: ["ai engineer", "ml engineer", "llm engineer", "genai developer", "ki entwickler", "ai developer", "prompt engineer", "mlops"]
+    - points: 30
+      terms: ["data scientist", "data engineer", "machine learning", "deep learning", "nlp engineer", "computer vision", "analytics engineer"]
+    - points: 25
+      terms: ["software engineer", "software developer", "backend developer", "backend engineer", "fullstack developer", "full stack engineer", "python developer", "typescript developer", "platform engineer"]
+    - points: 22
+      terms: ["data analyst", "bi developer", "business intelligence", "data warehouse", "data platform", "reporting analyst"]
+    - points: 20
+      terms: ["cloud engineer", "devops engineer", "rpa developer", "automatisierung entwickler", "api developer"]
+    - points: 20
+      terms: ["it consultant", "digitalisierungsmanager", "digitalization manager", "business analyst it", "implementation consultant"]
+    - points: 18
+      terms: ["iot developer", "mes entwickler", "industrie 4.0", "ot engineer", "digital factory", "smart manufacturing"]
+    - points: 18
+      terms: ["supply chain it", "logistik it", "wms developer", "warehouse management"]
+    - points: 18
+      terms: ["finance it", "controlling it", "financial analyst it", "fp&a analyst", "accounting software"]
+    - points: 18
+      terms: ["martech", "marketing technology", "e-commerce developer", "crm developer", "marketing automation", "growth engineer"]
+    - points: 10
+      terms: ["sales engineer", "technical sales", "pre-sales consultant", "business development", "solution sales"]
+    - points: 8
+      terms: ["performance marketing", "product marketing", "content manager"]
+    - points: 8
+      terms: ["operations analyst", "procurement analyst"]
+
+  technologies:
+    - points: 12
+      terms: ["llm", "large language model", "generative ai", "genai", "gpt", "langchain", "rag", "copilot", "openai", "azure ai"]
+    - points: 10
+      terms: ["machine learning", "deep learning", "neural network", "pytorch", "tensorflow", "mlops", "hugging face"]
+    - points: 8
+      terms: ["python", "fastapi", "django", "flask"]
+    - points: 8
+      terms: ["typescript", "node.js", "react", "vue"]
+    - points: 6
+      terms: ["docker", "kubernetes", "azure", "aws", "gcp", "cloud"]
+    - points: 6
+      terms: ["rest api", "microservices", "ci/cd", "devops"]
+    - points: 5
+      terms: ["power platform", "power automate", "n8n", "automatisierung", "automation", "rpa", "workflow"]
+    - points: 4
+      terms: ["sql", "postgresql", "mongodb", "etl", "databricks", "azure data factory", "data pipeline", "power bi"]
+
+  junior_title_terms: ["junior", "entry", "trainee", "werkstudent"]
+
+legacy_scoring:
+  base_points: 30
+  technology_points_cap: 25
+  watchlist_bonus: 8
+  junior_bonus: 5
+
+# Optional watchlist. Entries only add positive evidence to the legacy score.
 companies: []
-
-scoring:
-  threshold_it: 50          # Core IT and cross-functional IT roles
-  threshold_non_it: 60      # Sales, marketing, and logistics fallback roles
-
-profiles:
-  # Profile 1: Core IT and AI (weight 1.0)
-  - name: "AI & Data Engineering"
-    weight: 1.0
-    keywords:
-      - "AI Engineer"
-      - "ML Engineer"
-      - "Data Scientist"
-      - "Data Engineer"
-      - "LLM Engineer"
-      - "GenAI Developer"
-      - "Machine Learning"
-      - "Deep Learning"
-      - "NLP Engineer"
-      - "Computer Vision"
-      - "MLOps"
-      - "Prompt Engineer"
-      - "AI Developer"
-      - "KI Entwickler"
-
-  - name: "Software Development"
-    weight: 1.0
-    keywords:
-      - "Software Developer"
-      - "Software Engineer"
-      - "Backend Developer"
-      - "Backend Engineer"
-      - "Fullstack Developer"
-      - "Full Stack Engineer"
-      - "Python Developer"
-      - "TypeScript Developer"
-      - "API Developer"
-      - "Cloud Engineer"
-      - "DevOps Engineer"
-      - "Platform Engineer"
-      - "Automatisierung Entwickler"
-      - "RPA Developer"
-
-  - name: "Data & Analytics"
-    weight: 1.0
-    keywords:
-      - "Data Analyst"
-      - "Business Intelligence"
-      - "BI Developer"
-      - "Analytics Engineer"
-      - "Data Platform"
-      - "Data Warehouse"
-      - "Reporting Analyst"
-
-  # Profile 2: IT interface roles (weight 1.0, same priority as core IT)
-  - name: "IT Consulting & Business Interface"
-    weight: 1.0
-    keywords:
-      - "IT Consultant"
-      - "Digitalisierungsmanager"
-      - "Digitalization Manager"
-      - "Business Analyst IT"
-      - "Prozessberater IT"
-      - "ERP Consultant Junior"        # SAP/ERP only at junior level
-      - "SAP Junior"
-      - "Implementation Consultant"
-      - "Solution Architect Junior"
-      - "IT Projektmanager Junior"
-
-  - name: "IT & Production / IoT"
-    weight: 1.0
-    keywords:
-      - "MES Entwickler"
-      - "IoT Developer"
-      - "Industrie 4.0"
-      - "OT Engineer"
-      - "Produktions IT"
-      - "Manufacturing Engineer IT"
-      - "Digital Factory"
-      - "Smart Manufacturing"
-      - "Automatisierungstechnik IT"
-
-  - name: "IT & Supply Chain / Logistics"
-    weight: 1.0
-    keywords:
-      - "Supply Chain IT"
-      - "Logistik IT"
-      - "Warehouse Management System"
-      - "WMS Developer"
-      - "ERP Logistik"
-      - "Supply Chain Analyst"
-      - "Demand Planning IT"
-
-  - name: "IT & Finance / Controlling"
-    weight: 1.0
-    keywords:
-      - "Finance IT"
-      - "Controlling IT"
-      - "Financial Analyst IT"
-      - "Treasury IT"
-      - "Accounting Software"
-      - "FP&A Analyst"
-      - "Revenue Operations"
-
-  - name: "IT & Marketing / E-Commerce"
-    weight: 1.0
-    keywords:
-      - "Marketing Technology"
-      - "MarTech"
-      - "E-Commerce Developer"
-      - "Digital Marketing Analyst"
-      - "Growth Engineer"
-      - "CRM Developer"
-      - "Marketing Automation"
-      - "Web Analytics"
-
-  # ─── PROFIL 3: Non-IT Fallback (Gewicht 0.6, Threshold ≥60) ─────────────
-  - name: "Sales & Business Development"
-    weight: 0.6
-    keywords:
-      - "Sales Engineer"
-      - "Technical Sales"
-      - "Business Development"
-      - "Account Manager Tech"
-      - "Pre-Sales Consultant"
-      - "Solution Sales"
-
-  - name: "Marketing & Content"
-    weight: 0.6
-    keywords:
-      - "Content Manager"
-      - "Marketing Manager"
-      - "Performance Marketing"
-      - "Brand Manager"
-      - "Product Marketing"
-
-  - name: "Logistics & Operations"
-    weight: 0.6
-    keywords:
-      - "Logistics Manager Junior"
-      - "Operations Analyst"
-      - "Supply Chain Manager"
-      - "Procurement Analyst"
-
-# Senior-title filter applied in the scraper
-filters:
-  exclude_title_keywords:
-    - "Senior"
-    - "Lead"
-    - "Principal"
-    - "Head of"
-    - "Director"
-    - "VP "
-    - "Chief"
-    - "Staff Engineer"
-    - "(Senior)"
-    - "Sr."

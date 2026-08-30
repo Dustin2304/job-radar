@@ -1,5 +1,23 @@
-from api.scorer import score_job
 from api.models import JobResult
+from api.scorer import score_job
+
+SIGNALS = {
+    "role_terms": [
+        {"points": 35, "terms": ["ai engineer"]},
+        {"points": 25, "terms": ["python developer"]},
+    ],
+    "technologies": [
+        {"points": 12, "terms": ["llm"]},
+        {"points": 8, "terms": ["python", "fastapi"]},
+    ],
+    "junior_title_terms": ["junior", "entry", "trainee"],
+}
+LEGACY_SCORING = {
+    "base_points": 30,
+    "technology_points_cap": 25,
+    "watchlist_bonus": 8,
+    "junior_bonus": 5,
+}
 
 
 def make_job(title: str, profile: str, description: str = "") -> JobResult:
@@ -19,26 +37,39 @@ def make_job(title: str, profile: str, description: str = "") -> JobResult:
     )
 
 
-def test_score_job_applies_weight():
-    job = make_job("AI Engineer", "AI & Data Engineering", description="Python, LLM, FastAPI, MLOps")
-
-    full_score, _ = score_job(job, weight=1.0)
-    weighted_score, _ = score_job(job, weight=0.6)
-
-    assert weighted_score <= full_score
+def calculate(job: JobResult):
+    return score_job(job, signals=SIGNALS, legacy_scoring=LEGACY_SCORING)
 
 
-def test_score_job_ai_title_above_it_threshold():
-    job = make_job("AI Engineer", "AI & Data Engineering", description="Python and LLM platform work")
+def test_score_is_not_changed_by_legacy_discovery_group():
+    core_job = make_job(
+        "AI Engineer", "AI & Data Engineering", description="Python and LLM"
+    )
+    fallback_job = core_job.model_copy(
+        update={"profile": "Logistics & Operations"}
+    )
 
-    score, _ = score_job(job, weight=1.0)
+    core_score, _ = calculate(core_job)
+    fallback_score, _ = calculate(fallback_job)
 
-    assert score >= 50
+    assert fallback_score == core_score
 
 
-def test_score_job_irrelevant_title_below_threshold():
-    job = make_job("Hausmeister", "AI & Data Engineering", description="Building maintenance and cleaning")
+def test_score_job_ai_title_keeps_positive_signals():
+    job = make_job(
+        "AI Engineer", "AI & Data Engineering", description="Python and LLM"
+    )
 
-    score, _ = score_job(job, weight=1.0)
+    score, reason = calculate(job)
 
-    assert score < 50
+    assert score > LEGACY_SCORING["base_points"]
+    assert "Ai Engineer" in reason
+
+
+def test_job_without_positive_signal_keeps_neutral_legacy_score():
+    job = make_job("Business Process Analyst", "Discovery")
+
+    score, reason = calculate(job)
+
+    assert score == LEGACY_SCORING["base_points"]
+    assert reason == "Entry-Level"

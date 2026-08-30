@@ -29,14 +29,6 @@ from .sources.jobspy import fetch_jobs
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s", stream=sys.stderr)
 log = logging.getLogger(__name__)
 
-HOURS_OLD = 168
-RESULTS_PER_SEARCH = 50
-NON_IT_PROFILES = {
-    "Sales & Business Development",
-    "Marketing & Content",
-    "Logistics & Operations",
-}
-
 LEVEL_MAP = {
     "internship": "Entry",
     "entry level": "Entry",
@@ -109,14 +101,15 @@ def infer_level(raw_level: str | None, title: str) -> str:
 def run_scrape() -> ScrapeResponse:
     cfg = load_config()
 
-    profiles: list[dict] = cfg["profiles"]
-    locations: list[dict] = cfg["locations"]
+    search_cfg: dict = cfg["search"]
+    query_groups: list[dict] = search_cfg["query_groups"]
+    locations: list[dict] = search_cfg["locations"]
+    results_per_query: int = int(search_cfg.get("results_per_query", 50))
+    hours_old: int = int(search_cfg.get("hours_old", 168))
     watchlist: list[str] = [c["name"] for c in cfg.get("companies", [])]
-    scoring_cfg: dict = cfg.get("scoring", {})
-    threshold_it: int = scoring_cfg.get("threshold_it", 0)
-    threshold_non_it: int = scoring_cfg.get("threshold_non_it", threshold_it)
-
-    config_excludes = cfg.get("filters", {}).get("exclude_title_keywords", [])
+    signals: dict = cfg.get("signals", {})
+    legacy_scoring: dict = cfg.get("legacy_scoring", {})
+    config_excludes = cfg.get("hard_filters", {}).get("excluded_title_terms", [])
 
     seen_urls: set[str] = set()
     seen_title_company: set[tuple[str, str]] = set()
@@ -126,16 +119,12 @@ def run_scrape() -> ScrapeResponse:
     all_jobs: list[JobResult] = []
     total_raw = 0
     failed_searches = 0
-    dropped_by_score = 0
-    dropped_by_profile_mismatch = 0
 
-    for profile in profiles:
-        profile_name: str = profile["name"]
-        profile_weight: float = float(profile.get("weight", 1.0))
-        keywords: list[str] = profile["keywords"]
-        profile_keywords_lower = [kw.lower() for kw in keywords]
+    for query_group in query_groups:
+        discovery_group: str = query_group["name"]
+        queries: list[str] = query_group["queries"]
 
-        for keyword in keywords:
+        for query in queries:
             for loc in locations:
                 city: str = loc["city"]
                 country: str = loc["country"]
@@ -144,28 +133,28 @@ def run_scrape() -> ScrapeResponse:
 
                 try:
                     raw_jobs = fetch_jobs(
-                        search_query=keyword,
+                        search_query=query,
                         location=city,
                         country=country,
-                        results_wanted=RESULTS_PER_SEARCH,
-                        hours_old=HOURS_OLD,
+                        results_wanted=results_per_query,
+                        hours_old=hours_old,
                         radius_km=radius_km,
                         is_remote=is_remote,
                     )
                 except RuntimeError:
                     raise
                 except (ConnectionError, TimeoutError, OSError) as exc:
-                    log.warning("Search failed (network) [%s / %s / %s]: %s", profile_name, keyword, city, exc)
+                    log.warning("Search failed (network) [%s / %s / %s]: %s", discovery_group, query, city, exc)
                     failed_searches += 1
                     time.sleep(3.0)
                     continue
                 except (ValueError, KeyError) as exc:
-                    log.warning("Search failed (data) [%s / %s / %s]: %s", profile_name, keyword, city, exc)
+                    log.warning("Search failed (data) [%s / %s / %s]: %s", discovery_group, query, city, exc)
                     failed_searches += 1
                     time.sleep(1.5)
                     continue
                 except Exception:
-                    log.exception("Search failed (unexpected) [%s / %s / %s]", profile_name, keyword, city)
+                    log.exception("Search failed (unexpected) [%s / %s / %s]", discovery_group, query, city)
                     failed_searches += 1
                     time.sleep(1.5)
                     continue
@@ -181,7 +170,7 @@ def run_scrape() -> ScrapeResponse:
                     if not raw_url:
                         continue
 
-                    canonical_job = normalize_job(raw_job, keyword)
+                    canonical_job = normalize_job(raw_job, query)
                     previous_rejection = hard_filtered_jobs_by_id.get(canonical_job.id)
                     if previous_rejection is not None:
                         hard_filtered_jobs_by_id[canonical_job.id] = merge_search_queries(
@@ -215,11 +204,6 @@ def run_scrape() -> ScrapeResponse:
                         )
                         continue
 
-                    # Positive profile match: title must contain at least one profile keyword.
-                    if not any(profile_keyword in title.lower() for profile_keyword in profile_keywords_lower):
-                        dropped_by_profile_mismatch += 1
-                        continue
-
                     company = canonical_job.company
                     job_level_raw = _clean_str(raw_job.get("job_level", "")) or None
 
@@ -233,18 +217,17 @@ def run_scrape() -> ScrapeResponse:
 
                     job = to_v1_job_result(
                         canonical_job,
-                        profile=profile_name,
+                        profile=discovery_group,
                         in_watchlist=company_in_watchlist(company, watchlist),
                         level=infer_level(job_level_raw, title),
                     )
-                    score, reason = score_job(job, weight=profile_weight)
+                    score, reason = score_job(
+                        job,
+                        signals=signals,
+                        legacy_scoring=legacy_scoring,
+                    )
                     job.score = score
                     job.score_reason = reason
-
-                    threshold = threshold_non_it if profile_name in NON_IT_PROFILES else threshold_it
-                    if job.score < threshold:
-                        dropped_by_score += 1
-                        continue
 
                     all_jobs.append(job)
 
@@ -253,12 +236,10 @@ def run_scrape() -> ScrapeResponse:
     all_jobs.sort(key=lambda j: j.score, reverse=True)
 
     log.info(
-        "Scrape summary: raw=%d | kept=%d | hard_filtered=%d | dropped_score=%d | dropped_profile=%d | failed=%d",
+        "Scrape summary: raw=%d | kept=%d | hard_filtered=%d | failed=%d",
         total_raw,
         len(all_jobs),
         len(hard_filtered_jobs_by_id),
-        dropped_by_score,
-        dropped_by_profile_mismatch,
         failed_searches,
     )
 
@@ -267,7 +248,7 @@ def run_scrape() -> ScrapeResponse:
         total_found=total_raw,
         total_after_filter=len(all_jobs),
         scraped_at=datetime.now(timezone.utc),
-        profiles_searched=[p["name"] for p in profiles],
+        profiles_searched=[group["name"] for group in query_groups],
         failed_searches=failed_searches,
         hard_filter_rejections=dict(hard_filter_counts),
     )

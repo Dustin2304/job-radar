@@ -3,15 +3,15 @@ A personal job radar for junior-to-mid roles that scrapes Indeed and LinkedIn vi
 
 ## What This Project Does
 - Scrapes listings from Indeed and LinkedIn through `python-jobspy`.
-- Runs profile-based keyword searches from `config.yaml` across configured locations.
+- Runs broad discovery queries from `config.yaml` across configured locations.
 - Excludes only clear seniority and unsuitable employment-type title patterns before scoring.
-- Scores remaining jobs with a rule-based `0-100` relevance model and applies profile-specific thresholds.
+- Adds a temporary rule-based `0-100` score as information without using it as an acceptance gate.
 - Serves fresh, cached, and aggregated results through FastAPI endpoints backed by a local JSON cache.
 
 ## Architecture
 ```text
 config.yaml --> scraper orchestration --> JobSpy source --> normalization --> canonical Job
-                                                                            --> V1 adapter --> filter --> scorer --> /jobs
+                                                                            --> hard filter --> V1 adapter --> legacy score --> /jobs
                                                                                                               |
                                                                                                       JSON cache
                                                                                                               |
@@ -23,7 +23,7 @@ The API scoring step is rule-based on purpose: it is deterministic, free to run,
 ## End-to-End Flow with n8n
 The repository includes a sanitized workflow in `n8n/workflow.json`.
 
-1. FastAPI runs a fresh scrape through `GET /jobs` and writes the local cache.
+1. FastAPI runs a fresh scrape through `GET /jobs`, keeps every job that passes the hard filters, and writes the local cache.
 2. n8n reads the cached payload from `GET /jobs/cached`.
 3. Jobs are flattened, split into batches, and scored again by a local Ollama model using a profile-specific prompt.
 4. Relevant jobs are aggregated into a weekly HTML report and sent by email.
@@ -56,20 +56,12 @@ docker run --name n8n -p 5678:5678 -v ~/.n8n:/home/node/.n8n docker.n8n.io/n8nio
 ```
 
 ## Running
-Start the API server and n8n together:
-```powershell
-scripts/run.ps1
-```
-```bash
-scripts/run.sh
-```
-
-Both scripts start `n8n` and the FastAPI app together. They expect the `n8n` CLI to be installed and available in `PATH`. If you prefer Docker for n8n, start the container separately and run only the FastAPI server.
-
-Start only the API server:
+Start the API server:
 ```bash
 python -m uvicorn api.main:app --port 8001
 ```
+
+Start n8n separately through its CLI or Docker when using the bundled workflow.
 
 Run a scrape directly and print JSON to stdout:
 ```bash
@@ -137,22 +129,23 @@ pytest tests/ -v
 ## Configuration
 | Field | Effect |
 | --- | --- |
-| `locations[].city`, `radius_km`, `country` | Search area for each `jobspy` call |
-| `scoring.threshold_it` | Minimum score for IT profiles; lower results are dropped |
-| `scoring.threshold_non_it` | Minimum score for non-IT profiles with a higher hurdle |
-| `profiles[].name`, `keywords`, `weight` | Search profile definition; `weight < 1.0` marks non-IT fallback profiles and reduces the effective score |
-| `filters.exclude_title_keywords` | Adds explicit project-specific title exclusions to the explainable default hard filters |
+| `search.query_groups[].queries` | Broad discovery queries; groups only preserve a legacy result label |
+| `search.locations`, `results_per_query`, `hours_old` | JobSpy search scope |
+| `hard_filters.excluded_title_terms` | Adds explicit project-specific exclusions to the explainable defaults |
+| `signals.role_terms`, `signals.technologies` | Positive evidence for the temporary legacy score; never acceptance requirements |
+| `legacy_scoring` | Temporary base score, caps, and bonuses until the explainable V2 pre-score replaces it |
 | `companies` | Optional watchlist; matching jobs get `in_watchlist: true` and a score bonus |
 
 ## Scoring At a Glance
-Each job starts at `30` points. Title matches add up to `35`, description matches add up to `25`, watchlist matches add `8`, and junior or entry-style titles add `5`. The profile `weight` is applied to the accumulated score, which lets non-IT fallback profiles rank lower without separate logic. All scoring rules live in `api/scorer.py` and can be adjusted without changing the API surface.
+Each job currently starts at `30` points. Configured role signals add up to `35`, technology signals add up to `25`, watchlist matches add `8`, and junior or entry-style titles add `5`. Discovery groups do not modify the score, and the score does not remove jobs from the API result. This temporary score will be replaced by an explainable component-based pre-score in a later milestone.
 
 ## Tests
-The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, V1 compatibility, scorer weighting, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
+The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, V1 compatibility, positive scoring signals, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
 
 ## Limitations
 - Focused on German/DACH search coverage, currently configured around Karlsruhe, Germany.
 - Depends on `python-jobspy`, so rate limits and source-site markup changes can affect Indeed and LinkedIn scraping.
+- Some source results omit the full description. They remain eligible; enrichment and an explicit description status are planned before semantic and LLM evaluation.
 - No persistence layer beyond a local file cache.
 - No authentication on the FastAPI endpoints; intended for local or internal use.
 
@@ -160,16 +153,15 @@ The test suite covers canonical normalization, stable IDs, JobSpy isolation, str
 ```text
 api/
   main.py          # FastAPI app + endpoints
-  scraper.py       # search orchestration, legacy filter and threshold gate
+  scraper.py       # broad search orchestration and hard-filter integration
   scorer.py        # rule-based scoring
   models.py        # canonical and V1 response models
   normalization.py # raw source data to canonical Job
   compatibility.py # canonical Job to existing V1 API response
   filters.py        # explainable high-confidence hard exclusions
   sources/jobspy.py # JobSpy-specific fetching
-config.yaml     # profiles, locations, thresholds
+config.yaml     # discovery, hard filters, positive signals, legacy scoring
 n8n/            # sanitized workflow + n8n-specific docs
-scripts/        # run.sh / run.ps1
 tests/          # pytest suite
 pyproject.toml
 ```

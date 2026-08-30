@@ -1,207 +1,104 @@
-"""
-api/scorer.py
-Rule-based pre-scorer for JobResult objects.
-Computes a deterministic score 0-100 and a short reason string.
-"""
+"""Temporary rule-based score using configured positive evidence only."""
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+
 from .models import JobResult
 
-TITLE_KEYWORDS: list[tuple[int, list[str]]] = [
-    (35, [
-        "ai engineer",
-        "ml engineer",
-        "llm engineer",
-        "genai developer",
-        "ki entwickler",
-        "ai developer",
-        "prompt engineer",
-        "mlops",
-    ]),
-    (30, [
-        "data scientist",
-        "data engineer",
-        "machine learning",
-        "deep learning",
-        "nlp engineer",
-        "computer vision",
-        "analytics engineer",
-    ]),
-    (25, [
-        "software engineer",
-        "software developer",
-        "backend developer",
-        "backend engineer",
-        "fullstack developer",
-        "full stack engineer",
-        "python developer",
-        "typescript developer",
-        "platform engineer",
-    ]),
-    (22, [
-        "data analyst",
-        "bi developer",
-        "business intelligence",
-        "data warehouse",
-        "data platform",
-        "reporting analyst",
-    ]),
-    (20, [
-        "cloud engineer",
-        "devops engineer",
-        "rpa developer",
-        "automatisierung entwickler",
-        "api developer",
-    ]),
-    (20, [
-        "it consultant",
-        "digitalisierungsmanager",
-        "digitalization manager",
-        "business analyst it",
-        "implementation consultant",
-    ]),
-    (18, [
-        "iot developer",
-        "mes entwickler",
-        "industrie 4.0",
-        "ot engineer",
-        "digital factory",
-        "smart manufacturing",
-    ]),
-    (18, [
-        "supply chain it",
-        "logistik it",
-        "wms developer",
-        "warehouse management",
-    ]),
-    (18, [
-        "finance it",
-        "controlling it",
-        "financial analyst it",
-        "fp&a analyst",
-        "accounting software",
-    ]),
-    (18, [
-        "martech",
-        "marketing technology",
-        "e-commerce developer",
-        "crm developer",
-        "marketing automation",
-        "growth engineer",
-    ]),
-    (10, [
-        "sales engineer",
-        "technical sales",
-        "pre-sales consultant",
-        "business development",
-        "solution sales",
-    ]),
-    (8, ["performance marketing", "product marketing", "content manager"]),
-    (8, ["operations analyst", "procurement analyst"]),
-]
 
-DESCRIPTION_KEYWORDS: list[tuple[int, list[str]]] = [
-    (12, [
-        "llm",
-        "large language model",
-        "generative ai",
-        "genai",
-        "gpt",
-        "langchain",
-        "rag",
-        "copilot",
-        "openai",
-        "azure ai",
-    ]),
-    (10, [
-        "machine learning",
-        "deep learning",
-        "neural network",
-        "pytorch",
-        "tensorflow",
-        "mlops",
-        "hugging face",
-    ]),
-    (8, ["python", "fastapi", "django", "flask"]),
-    (8, ["typescript", "node.js", "react", "vue"]),
-    (6, ["docker", "kubernetes", "azure", "aws", "gcp", "cloud"]),
-    (6, ["rest api", "microservices", "ci/cd", "devops"]),
-    (5, ["automatisierung", "automation", "rpa", "workflow"]),
-    (4, ["sql", "postgresql", "mongodb", "data pipeline"]),
-]
-
-WATCHLIST_BONUS = 8
-JUNIOR_BONUS = 5
-REMOTE_MALUS = 0
-
-
-def _match_keywords(text: str, groups: list[tuple[int, list[str]]]) -> tuple[int, list[str]]:
-    """Returns total points and matched keywords."""
+def _match_signals(
+    text: str,
+    groups: Sequence[Mapping[str, object]],
+) -> tuple[int, list[str]]:
+    """Return points and matches for configured positive signal groups."""
     total = 0
     matched: list[str] = []
-    text_lower = text.lower()
-    for points, keywords in groups:
-        for kw in keywords:
-            if kw in text_lower:
+    text_lower = text.casefold()
+    for group in groups:
+        points = int(group.get("points", 0))
+        terms = group.get("terms", [])
+        if not isinstance(terms, Sequence) or isinstance(terms, str):
+            continue
+        for value in terms:
+            term = str(value).casefold()
+            if term and term in text_lower:
                 total += points
-                matched.append(kw)
+                matched.append(term)
                 break
     return total, matched
 
 
 def _build_reason(
-    title_matches: list[str],
-    desc_matches: list[str],
+    role_matches: list[str],
+    technology_matches: list[str],
     watchlist: bool,
     level: str,
-    weight: float,
 ) -> str:
-    """Build a short reason string from the strongest matches."""
     parts: list[str] = []
 
-    if title_matches:
-        parts.append(title_matches[0].title())
+    if role_matches:
+        parts.append(role_matches[0].title())
 
-    for kw in desc_matches[:2]:
-        label = kw.upper() if len(kw) <= 4 else kw.title()
-        if label.lower() not in [p.lower() for p in parts]:
+    for term in technology_matches[:2]:
+        label = term.upper() if len(term) <= 4 else term.title()
+        if label.casefold() not in [part.casefold() for part in parts]:
             parts.append(label)
 
     if watchlist:
         parts.append("Watchlist")
     if level in ("Entry", "Mid"):
         parts.append(level + "-Level")
-    if weight < 1.0:
-        parts.append("Non-IT")
 
     return ", ".join(parts[:5]) or "No clear match"
 
 
-def score_job(job: JobResult, weight: float = 1.0) -> tuple[int, str]:
-    """
-    Returns (score: int 0-100, reason: str).
-    Score 0 = definitively irrelevant.
-    """
-    title = job.title.lower()
-    desc = (job.description or "").lower()
+def score_job(
+    job: JobResult,
+    *,
+    signals: Mapping[str, object],
+    legacy_scoring: Mapping[str, object],
+) -> tuple[int, str]:
+    """Return the temporary legacy score without using it as an acceptance gate."""
+    role_groups = signals.get("role_terms", [])
+    technology_groups = signals.get("technologies", [])
+    junior_title_terms = signals.get("junior_title_terms", [])
 
-    title_pts, title_matches = _match_keywords(title, TITLE_KEYWORDS)
+    if not isinstance(role_groups, Sequence):
+        role_groups = []
+    if not isinstance(technology_groups, Sequence):
+        technology_groups = []
+    if not isinstance(junior_title_terms, Sequence) or isinstance(
+        junior_title_terms, str
+    ):
+        junior_title_terms = []
 
-    desc_pts, desc_matches = _match_keywords(desc, DESCRIPTION_KEYWORDS)
-    desc_pts = min(desc_pts, 25)
+    role_points, role_matches = _match_signals(job.title, role_groups)
+    technology_points, technology_matches = _match_signals(
+        job.description or "", technology_groups
+    )
+    technology_points = min(
+        technology_points,
+        int(legacy_scoring.get("technology_points_cap", 25)),
+    )
 
-    base = 30
-    raw = base + title_pts + desc_pts
+    raw = int(legacy_scoring.get("base_points", 30))
+    raw += role_points + technology_points
 
     if job.in_watchlist:
-        raw += WATCHLIST_BONUS
-    if any(kw in title for kw in ("junior", "entry", "trainee", "werkstudent")):
-        raw += JUNIOR_BONUS
-
-    raw = int(raw * weight)
+        raw += int(legacy_scoring.get("watchlist_bonus", 8))
+    title = job.title.casefold()
+    if any(str(term).casefold() in title for term in junior_title_terms):
+        raw += int(legacy_scoring.get("junior_bonus", 5))
 
     score = max(0, min(100, raw))
-    reason = _build_reason(title_matches, desc_matches, job.in_watchlist, job.level, weight)
-
+    reason = _build_reason(
+        role_matches,
+        technology_matches,
+        job.in_watchlist,
+        job.level,
+    )
     return score, reason
+
+
+__all__ = ["score_job"]
