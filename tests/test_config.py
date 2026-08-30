@@ -14,6 +14,7 @@ def test_configuration_separates_discovery_filters_signals_and_scoring():
     }
     assert "legacy_scoring" not in config
     assert config["search"]["query_groups"]
+    assert config["search"]["linkedin_fetch_description"] is False
     assert all(
         "weight" not in group and group["queries"]
         for group in config["search"]["query_groups"]

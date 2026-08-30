@@ -26,6 +26,9 @@ def test_normalize_job_preserves_canonical_fields_and_full_description():
     assert job.title == "Process Automation Specialist"
     assert job.company == "Example GmbH"
     assert job.description == "A" * 700
+    assert job.description_status == "available"
+    assert job.description_length == 700
+    assert job.description_source == "search_result"
     assert job.url == "https://www.linkedin.com/jobs/view/123"
     assert job.source == "linkedin"
     assert job.location == "Karlsruhe, Germany"
@@ -49,6 +52,9 @@ def test_normalize_job_handles_missing_values():
     assert job.company == ""
     assert job.location is None
     assert job.description == ""
+    assert job.description_status == "missing"
+    assert job.description_length == 0
+    assert job.description_source == "unknown"
     assert job.date_posted is None
     assert job.is_remote is False
 
@@ -119,3 +125,26 @@ def test_v1_adapter_keeps_existing_contract_and_truncation():
     assert result.level == "Entry"
     assert result.in_watchlist is True
     assert result.description == "A" * 500
+    assert result.description_status == "available"
+    assert result.description_length == 700
+    assert result.description_source == "search_result"
+
+
+def test_detail_fetch_source_is_retained_for_available_description():
+    job = normalize_job(
+        make_raw_job(_description_source="detail_fetch"),
+        "process automation",
+    )
+
+    assert job.description_status == "available"
+    assert job.description_source == "detail_fetch"
+
+
+def test_missing_description_always_has_unknown_source():
+    job = normalize_job(
+        make_raw_job(description=None, _description_source="detail_fetch"),
+        "process automation",
+    )
+
+    assert job.description_status == "missing"
+    assert job.description_source == "unknown"

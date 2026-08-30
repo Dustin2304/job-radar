@@ -33,3 +33,36 @@ def test_fetch_jobs_contains_jobspy_specific_parameters(monkeypatch):
         "verbose": 0,
         "distance": 62,
     }
+
+
+def test_linkedin_detail_fetch_is_explicit_and_marks_raw_source(monkeypatch):
+    received = {}
+
+    def fake_scrape_jobs(**kwargs):
+        received.update(kwargs)
+        return pd.DataFrame(
+            [
+                {
+                    "id": "linkedin-1",
+                    "site": "linkedin",
+                    "title": "Automation Engineer",
+                    "description": "Full LinkedIn description",
+                }
+            ]
+        )
+
+    monkeypatch.setattr(jobspy, "scrape_jobs", fake_scrape_jobs)
+
+    jobs = jobspy.fetch_jobs(
+        search_query="automation",
+        location="Karlsruhe",
+        country="Germany",
+        results_wanted=5,
+        hours_old=168,
+        sites=["linkedin"],
+        linkedin_fetch_description=True,
+    )
+
+    assert received["site_name"] == ["linkedin"]
+    assert received["linkedin_fetch_description"] is True
+    assert jobs[0]["_description_source"] == "detail_fetch"

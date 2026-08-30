@@ -131,6 +131,9 @@ def test_run_scrape_keeps_v1_response_contract(monkeypatch):
         "date_posted",
         "is_remote",
         "description",
+        "description_status",
+        "description_length",
+        "description_source",
         "level",
         "profile",
         "in_watchlist",
@@ -144,6 +147,15 @@ def test_run_scrape_keeps_v1_response_contract(monkeypatch):
     assert response.jobs[0].pre_score is not None
     assert response.jobs[0].score == round(response.jobs[0].pre_score)
     assert response.jobs[0].pre_score_components is not None
+    assert response.description_stats.model_dump() == {
+        "total": 2,
+        "available": 2,
+        "missing": 0,
+        "by_source": {
+            "linkedin": {"available": 1, "missing": 0},
+            "indeed": {"available": 1, "missing": 0},
+        },
+    }
 
 
 def test_discovered_jobs_do_not_require_query_term_in_title(monkeypatch):
@@ -197,3 +209,7 @@ def test_discovered_jobs_do_not_require_query_term_in_title(monkeypatch):
     assert all(job.pre_score is not None for job in response.jobs)
     assert all(job.pre_score_components is not None for job in response.jobs)
     assert response.hard_filter_rejections == {"excluded_seniority": 1}
+    assert response.description_stats.total == 5
+    assert response.description_stats.available == 0
+    assert response.description_stats.missing == 5
+    assert response.description_stats.by_source["linkedin"].missing == 5

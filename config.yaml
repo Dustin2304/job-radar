@@ -1,6 +1,8 @@
 search:
   results_per_query: 50
   hours_old: 168
+  # Disabled by default because LinkedIn detail requests are slower and more rate-limited.
+  linkedin_fetch_description: false
 
   locations:
     - city: "Karlsruhe"

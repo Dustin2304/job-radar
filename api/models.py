@@ -44,6 +44,29 @@ class PreScoreResult(BaseModel):
         return self
 
 
+class DescriptionSourceStats(BaseModel):
+    available: int = Field(default=0, ge=0)
+    missing: int = Field(default=0, ge=0)
+
+
+class DescriptionStats(BaseModel):
+    total: int = Field(default=0, ge=0)
+    available: int = Field(default=0, ge=0)
+    missing: int = Field(default=0, ge=0)
+    by_source: dict[str, DescriptionSourceStats] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def counts_are_consistent(self):
+        if self.available + self.missing != self.total:
+            raise ValueError("description availability counts must equal total")
+        source_total = sum(
+            counts.available + counts.missing for counts in self.by_source.values()
+        )
+        if source_total != self.total:
+            raise ValueError("description source counts must equal total")
+        return self
+
+
 class FilterReason(BaseModel):
     code: str
     field: str | None = None
@@ -64,6 +87,9 @@ class Job(BaseModel):
     title: str
     company: str
     description: str
+    description_status: Literal["available", "missing"] = "missing"
+    description_length: int = Field(default=0, ge=0)
+    description_source: Literal["search_result", "detail_fetch", "unknown"] = "unknown"
     url: str
 
     location: str | None = None
@@ -96,6 +122,9 @@ class JobResult(BaseModel):
     date_posted: str = Field(description="Posting date as returned by the source platform")
     is_remote: bool = Field(description="Whether the position is fully or partially remote")
     description: str = Field(max_length=500, description="Short excerpt of the job description (max 500 characters)")
+    description_status: Literal["available", "missing"] = "missing"
+    description_length: int = Field(default=0, ge=0)
+    description_source: Literal["search_result", "detail_fetch", "unknown"] = "unknown"
     level: str = Field(description="Seniority level inferred from the posting")
     profile: str = Field(description="Legacy API label for the discovery query group")
     in_watchlist: bool = Field(default=False, description="Whether the job has been saved to the watchlist")
@@ -123,10 +152,13 @@ class ScrapeResponse(BaseModel):
         default_factory=dict,
         description="Counts of unique jobs rejected by each explainable hard-filter reason",
     )
+    description_stats: DescriptionStats = Field(default_factory=DescriptionStats)
 
 
 __all__ = [
     "CategoryMatch",
+    "DescriptionSourceStats",
+    "DescriptionStats",
     "FilterReason",
     "FilterResult",
     "Job",

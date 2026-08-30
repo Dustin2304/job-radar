@@ -126,6 +126,18 @@ def normalize_job(raw_job: Mapping[str, object], search_query: str) -> Job:
     title = clean_string(raw_job.get("title"))
     company = clean_string(raw_job.get("company"))
     location = clean_string(raw_job.get("location")) or None
+    description = clean_string(raw_job.get("description"))
+    raw_description_source = clean_string(raw_job.get("_description_source"))
+    if not description:
+        description_status = "missing"
+        description_source = "unknown"
+    else:
+        description_status = "available"
+        description_source = (
+            raw_description_source
+            if raw_description_source in {"search_result", "detail_fetch"}
+            else "search_result"
+        )
 
     query = clean_string(search_query)
     return Job(
@@ -140,7 +152,10 @@ def normalize_job(raw_job: Mapping[str, object], search_query: str) -> Job:
         source_id=source_id,
         title=title,
         company=company,
-        description=clean_string(raw_job.get("description")),
+        description=description,
+        description_status=description_status,
+        description_length=len(description),
+        description_source=description_source,
         url=url,
         location=location,
         is_remote=_normalize_bool(raw_job.get("is_remote")),

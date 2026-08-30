@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent.parent
 
-from .models import JobResult, ScrapeResponse
+from .models import DescriptionStats, JobResult, ScrapeResponse
 from .scraper import run_scrape
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -65,6 +65,7 @@ class StatsResponse(BaseModel):
     by_source: dict[str, int]
     watchlist_count: int
     scraped_at: str
+    description_stats: DescriptionStats
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -97,6 +98,7 @@ def jobs_stats():
         by_source=dict(Counter(j.source for j in jobs)),
         watchlist_count=sum(1 for j in jobs if j.in_watchlist),
         scraped_at=cached.scraped_at.isoformat(),
+        description_stats=cached.description_stats,
     )
 
 

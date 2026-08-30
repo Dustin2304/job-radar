@@ -23,6 +23,7 @@ from .compatibility import to_v1_job_result
 from .filters import apply_filter_result, evaluate_hard_filters
 from .models import Job, JobResult, ScrapeResponse
 from .normalization import clean_string, merge_search_queries, normalize_job
+from .observability import build_description_stats
 from .scorer import apply_pre_score, calculate_pre_score
 from .sources.jobspy import fetch_jobs
 
@@ -106,6 +107,9 @@ def run_scrape() -> ScrapeResponse:
     locations: list[dict] = search_cfg["locations"]
     results_per_query: int = int(search_cfg.get("results_per_query", 50))
     hours_old: int = int(search_cfg.get("hours_old", 168))
+    linkedin_fetch_description: bool = bool(
+        search_cfg.get("linkedin_fetch_description", False)
+    )
     watchlist: list[str] = [c["name"] for c in cfg.get("companies", [])]
     signals: dict = cfg.get("signals", {})
     pre_score_config: dict = cfg.get("pre_score", {})
@@ -115,6 +119,7 @@ def run_scrape() -> ScrapeResponse:
     seen_title_company: set[tuple[str, str]] = set()
     canonical_jobs_by_url: dict[str, Job] = {}
     hard_filtered_jobs_by_id: dict[str, Job] = {}
+    observed_jobs_by_id: dict[str, Job] = {}
     hard_filter_counts: Counter[str] = Counter()
     all_jobs: list[JobResult] = []
     total_raw = 0
@@ -140,6 +145,7 @@ def run_scrape() -> ScrapeResponse:
                         hours_old=hours_old,
                         radius_km=radius_km,
                         is_remote=is_remote,
+                        linkedin_fetch_description=linkedin_fetch_description,
                     )
                 except RuntimeError:
                     raise
@@ -166,11 +172,18 @@ def run_scrape() -> ScrapeResponse:
                 total_raw += len(raw_jobs)
 
                 for raw_job in raw_jobs:
+                    canonical_job = normalize_job(raw_job, query)
+                    observed_job = observed_jobs_by_id.get(canonical_job.id)
+                    if observed_job is None or (
+                        observed_job.description_status == "missing"
+                        and canonical_job.description_status == "available"
+                    ):
+                        observed_jobs_by_id[canonical_job.id] = canonical_job
+
                     raw_url = _clean_str(raw_job.get("job_url", ""))
                     if not raw_url:
                         continue
 
-                    canonical_job = normalize_job(raw_job, query)
                     previous_rejection = hard_filtered_jobs_by_id.get(canonical_job.id)
                     if previous_rejection is not None:
                         hard_filtered_jobs_by_id[canonical_job.id] = merge_search_queries(
@@ -250,6 +263,7 @@ def run_scrape() -> ScrapeResponse:
         profiles_searched=[group["name"] for group in query_groups],
         failed_searches=failed_searches,
         hard_filter_rejections=dict(hard_filter_counts),
+        description_stats=build_description_stats(observed_jobs_by_id.values()),
     )
 
 

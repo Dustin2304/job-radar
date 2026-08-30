@@ -79,7 +79,7 @@ pytest tests/ -v
 | `/health` | `GET` | Health check |
 | `/jobs` | `GET` | Runs a fresh scrape and writes the cache |
 | `/jobs/cached` | `GET` | Returns the last cached scrape result |
-| `/jobs/stats` | `GET` | Returns aggregates: `by_profile`, `by_source`, `watchlist_count` |
+| `/jobs/stats` | `GET` | Returns job aggregates and overall/per-source description availability |
 
 ## Example Response
 ```json
@@ -94,6 +94,9 @@ pytest tests/ -v
       "date_posted": "2026-04-20",
       "is_remote": false,
       "description": "Build digital transformation and process optimization solutions with Python, REST APIs and Azure integrations.",
+      "description_status": "available",
+      "description_length": 5842,
+      "description_source": "search_result",
       "level": "Entry",
       "profile": "AI & Data Engineering",
       "in_watchlist": false,
@@ -118,6 +121,9 @@ pytest tests/ -v
       "date_posted": "2026-04-19",
       "is_remote": true,
       "description": "FastAPI and Docker role focused on backend automation services.",
+      "description_status": "available",
+      "description_length": 4310,
+      "description_source": "search_result",
       "level": "Mid",
       "profile": "Software Development",
       "in_watchlist": true,
@@ -139,7 +145,16 @@ pytest tests/ -v
   "scraped_at": "2026-04-21T08:30:00+00:00",
   "profiles_searched": ["AI & Data Engineering", "Software Development"],
   "failed_searches": 0,
-  "hard_filter_rejections": {"excluded_seniority": 8}
+  "hard_filter_rejections": {"excluded_seniority": 8},
+  "description_stats": {
+    "total": 2,
+    "available": 2,
+    "missing": 0,
+    "by_source": {
+      "indeed": {"available": 1, "missing": 0},
+      "linkedin": {"available": 1, "missing": 0}
+    }
+  }
 }
 ```
 
@@ -148,6 +163,7 @@ pytest tests/ -v
 | --- | --- |
 | `search.query_groups[].queries` | Broad discovery queries; groups only preserve a legacy result label |
 | `search.locations`, `results_per_query`, `hours_old` | JobSpy search scope |
+| `search.linkedin_fetch_description` | Uses JobSpy's slower LinkedIn detail fetch; disabled by default |
 | `hard_filters.excluded_title_terms` | Adds explicit project-specific exclusions to the explainable defaults |
 | `signals.role_terms`, `signals.technologies` | Named positive evidence retained in the pre-score components; never acceptance requirements |
 | `pre_score.seniority` | Explicit junior evidence and neutral fallback, maximum 25 points |
@@ -159,13 +175,29 @@ pytest tests/ -v
 ## Scoring At a Glance
 Every accepted job receives four stored components: seniority `0–25`, technologies `0–30`, role signals `0–25`, and location/work model `0–20`. Each component contains its score, maximum, matched signal names, and notes. Missing seniority and location information receive explicit neutral values rather than automatic rejection. The API retains every hard-filter-accepted job regardless of its pre-score. The old `score` and `score_reason` fields mirror the new result only for compatibility with the existing n8n workflow.
 
+## Description Data Quality
+
+Canonical jobs retain `description_status`, normalized `description_length`, and `description_source`. Missing descriptions never reject a job. Every scrape reports overall and per-source availability through `description_stats`.
+
+A live sample on 2026-08-30 produced:
+
+| Sample | Runtime | Available | Missing |
+| --- | ---: | ---: | ---: |
+| Indeed, normal search | part of 13.31 s mixed run | 25 | 0 |
+| LinkedIn, normal search | part of 13.31 s mixed run | 0 | 25 |
+| LinkedIn-only, normal | 0.69 s | 0 | 10 |
+| LinkedIn-only, JobSpy detail fetch | 8.33 s | 10 | 0 |
+
+No request errors or HTTP 429 responses occurred in these small samples. The enriched LinkedIn run was roughly 12 times slower than the equivalent normal run, so `linkedin_fetch_description` remains disabled by default. The planned embedding rule is explicit: missing descriptions use `title_only`; available descriptions use `title_and_description`. Blanket enrichment is deferred in favor of targeted enrichment after a later preselection step.
+
 ## Tests
 The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, representative scoring fixtures, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
 
 ## Limitations
 - Focused on German/DACH search coverage, currently configured around Karlsruhe, Germany.
 - Depends on `python-jobspy`, so rate limits and source-site markup changes can affect Indeed and LinkedIn scraping.
-- Some source results omit the full description. They remain eligible; enrichment and an explicit description status are planned before semantic and LLM evaluation.
+- Some source results omit the full description. They remain eligible and are explicitly measured through description metadata and per-source statistics.
+- LinkedIn detail enrichment is deliberately disabled by default because the measured sample was substantially slower and larger runs may encounter rate limits.
 - No persistence layer beyond a local file cache.
 - No authentication on the FastAPI endpoints; intended for local or internal use.
 
@@ -179,6 +211,7 @@ api/
   normalization.py # raw source data to canonical Job
   compatibility.py # canonical Job to existing V1 API response
   filters.py        # explainable high-confidence hard exclusions
+  observability.py  # description availability summaries by source
   sources/jobspy.py # JobSpy-specific fetching
 config.yaml     # discovery, hard filters, positive signals, pre-score rules
 n8n/            # sanitized workflow + n8n-specific docs

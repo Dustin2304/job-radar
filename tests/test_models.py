@@ -3,7 +3,14 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from api.models import JobResult, PreScoreResult, ScoreComponent, ScrapeResponse
+from api.models import (
+    DescriptionSourceStats,
+    DescriptionStats,
+    JobResult,
+    PreScoreResult,
+    ScoreComponent,
+    ScrapeResponse,
+)
 
 
 def test_scrape_response_default_failed_searches():
@@ -82,4 +89,16 @@ def test_pre_score_total_must_equal_components():
             technologies=ScoreComponent(score=30, max_score=30),
             role=ScoreComponent(score=25, max_score=25),
             location=ScoreComponent(score=20, max_score=20),
+        )
+
+
+def test_description_stats_reject_inconsistent_source_totals():
+    with pytest.raises(ValidationError):
+        DescriptionStats(
+            total=2,
+            available=1,
+            missing=1,
+            by_source={
+                "linkedin": DescriptionSourceStats(available=0, missing=1)
+            },
         )
