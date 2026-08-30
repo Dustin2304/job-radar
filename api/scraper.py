@@ -11,31 +11,24 @@ import logging
 import re
 import sys
 import time
-import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
-warnings.filterwarnings("ignore", module=r"jobspy.*")
-
 ROOT = Path(__file__).resolve().parent.parent
 
-import pandas as pd
 import yaml
 
-try:
-    from jobspy import scrape_jobs
-except ImportError:
-    scrape_jobs = None
-
-from .models import JobResult, ScrapeResponse
+from .compatibility import to_v1_job_result
+from .models import Job, JobResult, ScrapeResponse
+from .normalization import clean_string, merge_search_queries, normalize_job
 from .scorer import score_job
+from .sources.jobspy import fetch_jobs
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s", stream=sys.stderr)
 log = logging.getLogger(__name__)
 
 HOURS_OLD = 168
 RESULTS_PER_SEARCH = 50
-KM_TO_MILES = 0.621371
 NON_IT_PROFILES = {
     "Sales & Business Development",
     "Marketing & Content",
@@ -154,13 +147,7 @@ _LEVEL_MID_PATTERN = re.compile(
 
 def _clean_str(value) -> str:
     """Normalize scraper cell values: strip, collapse whitespace, reject 'nan'/'none'/'null'."""
-    if value is None or pd.isna(value):
-        return ""
-
-    cleaned = re.sub(r"\s+", " ", str(value).strip())
-    if cleaned.lower() in {"nan", "none", "null", "n/a", ""}:
-        return ""
-    return cleaned
+    return clean_string(value)
 
 
 def _compile_exclude_pattern(keywords: list[str]) -> re.Pattern[str]:
@@ -208,9 +195,6 @@ def infer_level(raw_level: str | None, title: str) -> str:
 
 
 def run_scrape() -> ScrapeResponse:
-    if scrape_jobs is None:
-        raise RuntimeError("python-jobspy not installed. Run: pip install python-jobspy")
-
     cfg = load_config()
 
     profiles: list[dict] = cfg["profiles"]
@@ -226,6 +210,7 @@ def run_scrape() -> ScrapeResponse:
 
     seen_urls: set[str] = set()
     seen_title_company: set[tuple[str, str]] = set()
+    canonical_jobs_by_url: dict[str, Job] = {}
     all_jobs: list[JobResult] = []
     total_raw = 0
     failed_searches = 0
@@ -244,25 +229,19 @@ def run_scrape() -> ScrapeResponse:
                 country: str = loc["country"]
                 is_remote: bool = loc.get("is_remote", False)
                 radius_km: int = loc.get("radius_km", 0)
-                radius_miles = int(radius_km * KM_TO_MILES) if radius_km else None
-
-                scrape_kwargs = dict(
-                    site_name=["indeed", "linkedin"],
-                    search_term=keyword,
-                    location=city,
-                    results_wanted=RESULTS_PER_SEARCH,
-                    hours_old=HOURS_OLD,
-                    country_indeed=country,
-                    description_format="markdown",
-                    verbose=0,
-                )
-                if is_remote:
-                    scrape_kwargs["is_remote"] = True
-                if radius_miles:
-                    scrape_kwargs["distance"] = radius_miles
 
                 try:
-                    df = scrape_jobs(**scrape_kwargs)
+                    raw_jobs = fetch_jobs(
+                        search_query=keyword,
+                        location=city,
+                        country=country,
+                        results_wanted=RESULTS_PER_SEARCH,
+                        hours_old=HOURS_OLD,
+                        radius_km=radius_km,
+                        is_remote=is_remote,
+                    )
+                except RuntimeError:
+                    raise
                 except (ConnectionError, TimeoutError, OSError) as exc:
                     log.warning("Search failed (network) [%s / %s / %s]: %s", profile_name, keyword, city, exc)
                     failed_searches += 1
@@ -279,18 +258,27 @@ def run_scrape() -> ScrapeResponse:
                     time.sleep(1.5)
                     continue
 
-                if df is None or df.empty:
+                if not raw_jobs:
                     time.sleep(1.5)
                     continue
 
-                total_raw += len(df)
+                total_raw += len(raw_jobs)
 
-                for _, row in df.iterrows():
-                    url = _clean_str(row.get("job_url", ""))
-                    if not url or url in seen_urls:
+                for raw_job in raw_jobs:
+                    raw_url = _clean_str(raw_job.get("job_url", ""))
+                    if not raw_url:
                         continue
 
-                    title = _clean_str(row.get("title", ""))
+                    canonical_job = normalize_job(raw_job, keyword)
+                    if raw_url in seen_urls:
+                        known_job = canonical_jobs_by_url.get(raw_url)
+                        if known_job is not None:
+                            canonical_jobs_by_url[raw_url] = merge_search_queries(
+                                known_job, canonical_job.search_queries
+                            )
+                        continue
+
+                    title = canonical_job.title
                     if exclude_pattern.search(title):
                         continue
 
@@ -299,33 +287,22 @@ def run_scrape() -> ScrapeResponse:
                         dropped_by_profile_mismatch += 1
                         continue
 
-                    company = _clean_str(row.get("company", ""))
-                    job_level_raw = _clean_str(row.get("job_level", "")) or None
+                    company = canonical_job.company
+                    job_level_raw = _clean_str(raw_job.get("job_level", "")) or None
 
                     dedup_key = (title.lower(), company.lower())
                     if dedup_key in seen_title_company:
                         continue
 
-                    seen_urls.add(url)
+                    seen_urls.add(raw_url)
                     seen_title_company.add(dedup_key)
+                    canonical_jobs_by_url[raw_url] = canonical_job
 
-                    description = _clean_str(row.get("description", ""))[:500]
-                    source_raw = str(row.get("site", "") or "").lower()
-                    source = source_raw if source_raw in ("indeed", "linkedin") else "indeed"
-
-                    job = JobResult(
-                        title=title,
-                        company=company,
-                        location=_clean_str(row.get("location", "")),
-                        url=url,
-                        source=source,
-                        date_posted=_clean_str(row.get("date_posted", "")),
-                        is_remote=bool(row.get("is_remote", False)),
-                        description=description,
-                        level=infer_level(job_level_raw, title),
+                    job = to_v1_job_result(
+                        canonical_job,
                         profile=profile_name,
                         in_watchlist=company_in_watchlist(company, watchlist),
-                        skills_required=[],
+                        level=infer_level(job_level_raw, title),
                     )
                     score, reason = score_job(job, weight=profile_weight)
                     job.score = score

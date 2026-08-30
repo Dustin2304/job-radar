@@ -4,6 +4,57 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class CategoryMatch(BaseModel):
+    name: str
+    similarity: float
+
+
+class ProfileMatch(BaseModel):
+    name: str
+    similarity: float
+
+
+class ScoreComponents(BaseModel):
+    profile: float = 0
+    category: float = 0
+    seniority: float = 0
+    skills: float = 0
+    location: float = 0
+    bonus: float = 0
+
+
+class Job(BaseModel):
+    """Canonical source-independent representation used inside the application."""
+
+    id: str
+    source_id: str | None = None
+
+    title: str
+    company: str
+    description: str
+    url: str
+
+    location: str | None = None
+    is_remote: bool = False
+    remote_type: str | None = None
+
+    source: str
+    date_posted: str | None = None
+    search_queries: list[str] = Field(default_factory=list)
+
+    categories: list[CategoryMatch] = Field(default_factory=list)
+    profile_matches: list[ProfileMatch] = Field(default_factory=list)
+
+    hard_filter_passed: bool = True
+    rejection_reasons: list[str] = Field(default_factory=list)
+
+    pre_score: float | None = None
+    score_components: ScoreComponents | None = None
+    llm_score: float | None = None
+    llm_recommendation: str | None = None
+    review_status: str = "NEW"
+
+
 class JobResult(BaseModel):
     title: str = Field(description="Job title as listed in the posting")
     company: str = Field(description="Name of the hiring company")
@@ -33,4 +84,11 @@ class ScrapeResponse(BaseModel):
     failed_searches: int = Field(default=0, description="Number of search attempts that raised an exception")
 
 
-__all__ = ["JobResult", "ScrapeResponse"]
+__all__ = [
+    "CategoryMatch",
+    "Job",
+    "JobResult",
+    "ProfileMatch",
+    "ScoreComponents",
+    "ScrapeResponse",
+]

@@ -10,11 +10,13 @@ A personal job radar for junior-to-mid roles that scrapes Indeed and LinkedIn vi
 
 ## Architecture
 ```text
-config.yaml --> scraper --> filter (exclude + profile-match) --> scorer --> threshold gate --> /jobs ----------+
-                  |                                                                          |                  |
-                  +--> jobspy (indeed/linkedin)                              JSON cache <----+                  |
-                                                                                                                 v
-                                                                                              n8n workflow --> Ollama reranking --> HTML email
+config.yaml --> scraper orchestration --> JobSpy source --> normalization --> canonical Job
+                                                                            --> V1 adapter --> filter --> scorer --> /jobs
+                                                                                                              |
+                                                                                                      JSON cache
+                                                                                                              |
+                                                                                                              v
+                                                                                         n8n --> Ollama reranking --> HTML email
 ```
 The API scoring step is rule-based on purpose: it is deterministic, free to run, and easy to test. That makes it a good fit for a local screening service with transparent ranking logic. Optional LLM-based reranking is included in the `n8n/` workflow as a downstream presentation layer, not as part of the API scoring logic.
 
@@ -157,10 +159,13 @@ Each job starts at `30` points. Title matches add up to `35`, description matche
 ## Project Structure
 ```text
 api/
-  main.py       # FastAPI app + endpoints
-  scraper.py    # jobspy driver, filter, threshold gate
-  scorer.py     # rule-based scoring
-  models.py     # pydantic models
+  main.py          # FastAPI app + endpoints
+  scraper.py       # search orchestration, legacy filter and threshold gate
+  scorer.py        # rule-based scoring
+  models.py        # canonical and V1 response models
+  normalization.py # raw source data to canonical Job
+  compatibility.py # canonical Job to existing V1 API response
+  sources/jobspy.py # JobSpy-specific fetching
 config.yaml     # profiles, locations, thresholds
 n8n/            # sanitized workflow + n8n-specific docs
 scripts/        # run.sh / run.ps1
