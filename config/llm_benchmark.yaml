@@ -12,6 +12,7 @@ runtime:
   structured_output: json_schema
   timeout_seconds: 300
   base_seed: 42
+  exclusive_chat_model_loading: true
 
 prompt_calibration:
   subset_path: data/evaluation/llm-prompt-calibration-subset.json
@@ -41,3 +42,65 @@ known_absent_candidate_skills:
   - Azure Data Factory
   - SAP
   - C#
+
+runtime_calibration:
+  subset_path: data/evaluation/llm-runtime-calibration-subset.json
+  results_dir: data/evaluation/llm-benchmark-results
+  prompt_family: evidence_first
+  reasoning_efforts:
+    - none
+    - minimal
+    - low
+  runs_per_case: 1
+  timeout_seconds: 120
+  context_length: 65536
+  max_output_tokens: 8000
+  practical_limits:
+    max_failure_rate: 0.25
+    max_median_latency_seconds: 120
+
+model_screening:
+  results_dir: data/evaluation/llm-benchmark-results
+  prompt_family: evidence_first
+  runs_per_case: 1
+  confirmation_runs_per_case: 2
+  finalist_count: 2
+  runtime_profiles:
+    - model_id: ornith-1.5-9b
+      base_url: http://127.0.0.1:1234/v1
+      transport: responses
+      reasoning_effort: minimal
+      context_length: 65536
+      temperature: 0.2
+      max_output_tokens: 8000
+      timeout_seconds: 120
+      schema_enforcement: client_pydantic
+    - model_id: ornith-1.5-35b-a3b
+      base_url: http://127.0.0.1:1234/v1
+      transport: responses
+      reasoning_effort: minimal
+      context_length: 65536
+      temperature: 0.2
+      max_output_tokens: 8000
+      timeout_seconds: 120
+      schema_enforcement: client_pydantic
+    - model_id: qwen3.8-27b
+      base_url: http://127.0.0.1:1234/v1
+      transport: responses
+      reasoning_effort: none
+      context_length: 65536
+      temperature: 0.2
+      max_output_tokens: 8000
+      timeout_seconds: 120
+      schema_enforcement: client_pydantic
+
+candidate_models:
+  - id: ornith-1.5-9b
+    family: Ornith 1.5
+    quantization: Q8_0
+  - id: ornith-1.5-35b-a3b
+    family: Ornith 1.5 MoE
+    quantization: Q2_K
+  - id: qwen3.8-27b
+    family: Qwen 3.8
+    quantization: IQ4_XS

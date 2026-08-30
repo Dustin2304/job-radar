@@ -351,6 +351,39 @@ pipeline integration.
   data\evaluation\llm-benchmark-results\prompt-calibration-evidence-confirmation.json
 ```
 
+### Local Model Runtime Calibration and Screening
+
+V2.7.2b-2 separates model-native runtime settings from the frozen evaluation task.
+The prompt, prompt hash, candidate profile, eight-job subset, labels, and response
+schema remain unchanged, while context length, output budget, timeout, and reasoning
+effort are persisted per model. LM Studio models are loaded exclusively for each block;
+an already-loaded model is reloaded when its actual context does not match the profile.
+Embedding instances are left untouched.
+
+The current screening profiles use 65,536 context tokens and up to 8,000 output tokens.
+The larger budget fixed failures where reasoning consumed the former output allowance.
+The calibrated profiles are Ornith 1.5 9B with minimal reasoning, Ornith 1.5 35B-A3B
+with minimal reasoning, and Qwen 3.8 27B with reasoning disabled. All three completed
+two frozen eight-job runs without timeout, failed response, or detected candidate
+hallucination.
+
+Across the combined 16 observations per model, Ornith 35B-A3B achieved 62.5% exact
+recommendation accuracy, no large recommendation errors, 75% recommendation stability,
+and 36.0 seconds median latency. Ornith 9B achieved 68.75% accuracy, two large errors,
+87.5% stability, and 41.4 seconds median latency. Qwen 27B was fastest at 19.8 seconds,
+but reached 50% accuracy, two large errors, and 75% stability. The generic ranking
+therefore recommends the two Ornith profiles for the later full 24-job benchmark. This
+is a finalist recommendation, not a final deployment model choice.
+
+```powershell
+.venv\Scripts\python.exe scripts\calibrate_llm_runtime.py --dry-run
+.venv\Scripts\python.exe scripts\screen_llm_models.py --run-index 1
+.venv\Scripts\python.exe scripts\screen_llm_models.py --run-index 2
+.venv\Scripts\python.exe scripts\summarize_llm_model_screening.py `
+  data\evaluation\llm-benchmark-results\model-screening-run-1.json `
+  data\evaluation\llm-benchmark-results\model-screening-run-2.json
+```
+
 ## Description Data Quality
 
 Canonical jobs retain `description_status`, normalized `description_length`, and `description_source`. Missing descriptions never reject a job. Every scrape reports overall and per-source availability through `description_stats`.
@@ -389,6 +422,8 @@ api/
   embeddings.py    # LM Studio client + cached category/profile matching
   llm_evaluation.py # structured prompt, chat client, validation, and nonfatal statuses
   llm_benchmark.py # private benchmark schemas, balance, and freeze validation
+  llm_model_screening.py # runtime profiles, observations, metrics, and selection
+  lm_studio_runtime.py # exclusive model loading and context verification
   models.py        # canonical and V1 response models
   normalization.py # raw source data to canonical Job
   compatibility.py # canonical Job to existing V1 API response
@@ -416,6 +451,9 @@ scripts/
   label_career_profile_snapshot.py # apply local manual labels
   capture_llm_benchmark_pool.py # targeted private pre-model job capture
   finalize_llm_benchmark.py # freeze selected jobs and validate manual labels
+  calibrate_llm_runtime.py # per-model reasoning and runtime calibration
+  screen_llm_models.py # frozen eight-job generic model screening
+  summarize_llm_model_screening.py # repeated-run stability and finalist ranking
 tests/          # pytest suite
 pyproject.toml
 ```

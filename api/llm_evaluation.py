@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -48,6 +49,11 @@ require a preliminary evaluation. Never infer a related skill as direct experien
 }
 
 
+def evaluation_prompt_sha256(prompt_family: PromptFamily) -> str:
+    content = f"{SHARED_SYSTEM_PROMPT}\n{PROMPT_INSTRUCTIONS[prompt_family]}"
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
 class LLMServiceUnavailable(ConnectionError):
     """Raised when the configured local chat service cannot be reached."""
 
@@ -60,6 +66,13 @@ class ChatClient(Protocol):
     model: str
 
     def complete(self, messages: Sequence[Mapping[str, str]]) -> str: ...
+
+
+@dataclass(frozen=True)
+class LLMRequestStats:
+    output_tokens: int | None = None
+    reasoning_tokens: int | None = None
+    time_to_first_token_seconds: float | None = None
 
 
 @dataclass(frozen=True)
@@ -164,6 +177,112 @@ class LMStudioChatClient:
             raise LLMResponseError("chat response has an invalid shape") from exc
         if not isinstance(content, str) or not content.strip():
             raise LLMResponseError("chat response content is empty")
+        return content
+
+
+class LMStudioResponsesClient:
+    """LM Studio Responses client with configurable native reasoning effort.
+
+    LM Studio currently returns Responses structured-output requests as text, so the
+    unchanged schema is supplied to the model and validation remains entirely in the
+    existing ``StructuredJobEvaluator``.
+    """
+
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        model: str,
+        reasoning_effort: Literal["none", "minimal", "low", "medium", "high"],
+        timeout_seconds: float = 60,
+        temperature: float = 0.1,
+        max_output_tokens: int = 2000,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.reasoning_effort = reasoning_effort
+        self.timeout_seconds = timeout_seconds
+        self.temperature = temperature
+        self.max_output_tokens = max_output_tokens
+        self.request_stats: list[LLMRequestStats] = []
+
+    def reset_stats(self) -> None:
+        self.request_stats.clear()
+
+    def complete(self, messages: Sequence[Mapping[str, str]]) -> str:
+        system_messages = [
+            message["content"] for message in messages if message["role"] == "system"
+        ]
+        input_messages = [
+            dict(message) for message in messages if message["role"] != "system"
+        ]
+        schema = LLMEvaluation.model_json_schema()
+        instructions = "\n\n".join(system_messages) + (
+            "\n\nReturn JSON conforming exactly to this unchanged schema:\n"
+            f"{json.dumps(schema, ensure_ascii=False)}"
+        )
+        request_body: dict[str, object] = {
+            "model": self.model,
+            "instructions": instructions,
+            "input": input_messages,
+            "reasoning": {"effort": self.reasoning_effort},
+            "temperature": self.temperature,
+            "max_output_tokens": self.max_output_tokens,
+            "store": False,
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "job_evaluation",
+                    "strict": True,
+                    "schema": schema,
+                }
+            },
+        }
+        request = Request(
+            f"{self.base_url}/responses",
+            data=json.dumps(request_body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                body = json.load(response)
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise LLMResponseError(
+                f"responses service returned HTTP {exc.code}: {detail}"
+            ) from exc
+        except (URLError, TimeoutError, OSError) as exc:
+            raise LLMServiceUnavailable(
+                f"responses service timed out or is unavailable at {self.base_url}"
+            ) from exc
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise LLMResponseError("responses service returned invalid JSON") from exc
+
+        usage = body.get("usage") or {}
+        output_details = usage.get("output_tokens_details") or {}
+        self.request_stats.append(
+            LLMRequestStats(
+                output_tokens=usage.get("output_tokens"),
+                reasoning_tokens=output_details.get("reasoning_tokens"),
+            )
+        )
+        if body.get("status") != "completed":
+            raise LLMResponseError(
+                f"responses request did not complete: {body.get('incomplete_details')}"
+            )
+
+        output_texts = [
+            content.get("text")
+            for item in body.get("output", [])
+            if item.get("type") == "message"
+            for content in item.get("content", [])
+            if content.get("type") == "output_text"
+        ]
+        content = "".join(value for value in output_texts if isinstance(value, str))
+        if not content.strip():
+            raise LLMResponseError("responses output text is empty")
         return content
 
 
@@ -369,13 +488,16 @@ __all__ = [
     "EvaluationDiagnostics",
     "LLMEvaluationSettings",
     "LLMResponseError",
+    "LLMRequestStats",
     "LLMServiceUnavailable",
     "LMStudioChatClient",
+    "LMStudioResponsesClient",
     "PROMPT_INSTRUCTIONS",
     "PromptFamily",
     "SHARED_SYSTEM_PROMPT",
     "StructuredJobEvaluator",
     "build_evaluation_messages",
+    "evaluation_prompt_sha256",
     "get_structured_job_evaluator",
     "load_candidate_profile",
 ]

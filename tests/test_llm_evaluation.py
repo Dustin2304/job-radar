@@ -9,6 +9,7 @@ from api.llm_evaluation import (
     LLMEvaluationSettings,
     LLMServiceUnavailable,
     LMStudioChatClient,
+    LMStudioResponsesClient,
     StructuredJobEvaluator,
     build_evaluation_messages,
     get_structured_job_evaluator,
@@ -195,6 +196,95 @@ def test_lm_studio_client_requests_strict_json_schema(monkeypatch):
     assert schema_config["strict"] is True
     assert schema_config["schema"]["additionalProperties"] is False
     assert set(schema_config["schema"]["required"]) == set(valid_evaluation())
+
+
+def test_responses_client_records_reasoning_usage_and_returns_output(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["payload"] = json.loads(request.data)
+        return BytesIO(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "output": [
+                        {
+                            "type": "message",
+                            "content": [
+                                {
+                                    "type": "output_text",
+                                    "text": json.dumps(valid_evaluation()),
+                                }
+                            ],
+                        }
+                    ],
+                    "usage": {
+                        "output_tokens": 250,
+                        "output_tokens_details": {"reasoning_tokens": 180},
+                    },
+                }
+            ).encode("utf-8")
+        )
+
+    monkeypatch.setattr("api.llm_evaluation.urlopen", fake_urlopen)
+    client = LMStudioResponsesClient(
+        base_url="http://localhost:1234/v1",
+        model="test-model",
+        reasoning_effort="minimal",
+        max_output_tokens=1000,
+    )
+
+    content = client.complete([{"role": "user", "content": "Evaluate"}])
+
+    assert json.loads(content)["fit_score"] == 82
+    assert captured["url"] == "http://localhost:1234/v1/responses"
+    assert captured["payload"]["reasoning"] == {"effort": "minimal"}
+    assert captured["payload"]["text"]["format"]["type"] == "json_schema"
+    assert "additionalProperties" in captured["payload"]["instructions"]
+    assert client.request_stats[0].output_tokens == 250
+    assert client.request_stats[0].reasoning_tokens == 180
+
+
+def test_responses_client_supports_disabled_reasoning(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["payload"] = json.loads(request.data)
+        return BytesIO(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "output": [
+                        {
+                            "type": "message",
+                            "content": [
+                                {
+                                    "type": "output_text",
+                                    "text": json.dumps(valid_evaluation()),
+                                }
+                            ],
+                        }
+                    ],
+                    "usage": {
+                        "output_tokens": 70,
+                        "output_tokens_details": {"reasoning_tokens": 0},
+                    },
+                }
+            ).encode("utf-8")
+        )
+
+    monkeypatch.setattr("api.llm_evaluation.urlopen", fake_urlopen)
+    client = LMStudioResponsesClient(
+        base_url="http://localhost:1234/v1",
+        model="test-model",
+        reasoning_effort="none",
+    )
+
+    client.complete([{"role": "user", "content": "Evaluate"}])
+
+    assert captured["payload"]["reasoning"] == {"effort": "none"}
+    assert client.request_stats[0].reasoning_tokens == 0
 
 
 def test_invalid_output_is_retried_once_then_validated_without_repair():
