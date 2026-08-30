@@ -131,6 +131,20 @@ def test_prompt_contains_full_description_and_existing_analysis():
     assert '"required_evaluation_status": "complete"' in messages[1]["content"]
 
 
+def test_prompt_families_change_instructions_but_not_input():
+    job = canonical_job()
+    profile = load_candidate_profile()
+
+    minimal = build_evaluation_messages(job, profile, prompt_family="minimal")
+    evidence = build_evaluation_messages(job, profile, prompt_family="evidence_first")
+    conservative = build_evaluation_messages(job, profile, prompt_family="conservative")
+
+    assert minimal[1] == evidence[1] == conservative[1]
+    assert "identify relevant job requirements" not in minimal[0]["content"]
+    assert "identify relevant job requirements" in evidence[0]["content"]
+    assert "mandatory multi-year experience gap" in conservative[0]["content"]
+
+
 def test_missing_description_requires_preliminary_evaluation():
     messages = build_evaluation_messages(
         canonical_job(description=""), load_candidate_profile()
@@ -164,6 +178,8 @@ def test_lm_studio_client_requests_strict_json_schema(monkeypatch):
         model="test-model",
         timeout_seconds=12,
         temperature=0,
+        max_tokens=4000,
+        seed=42,
     )
 
     content = client.complete([{"role": "user", "content": "Evaluate"}])
@@ -172,6 +188,8 @@ def test_lm_studio_client_requests_strict_json_schema(monkeypatch):
     assert captured["url"] == "http://localhost:1234/v1/chat/completions"
     assert captured["timeout"] == 12
     assert captured["payload"]["model"] == "test-model"
+    assert captured["payload"]["max_tokens"] == 4000
+    assert captured["payload"]["seed"] == 42
     assert captured["payload"]["response_format"]["type"] == "json_schema"
     schema_config = captured["payload"]["response_format"]["json_schema"]
     assert schema_config["strict"] is True
@@ -196,6 +214,18 @@ def test_invalid_output_is_retried_once_then_validated_without_repair():
     assert len(client.calls) == 2
     assert client.calls[1][-2]["content"] == "fit_score: 82"
     assert "corrected JSON object only" in client.calls[1][-1]["content"]
+
+
+def test_evaluation_diagnostics_report_retry_and_first_pass_status():
+    client = QueueChatClient(["invalid", json.dumps(valid_evaluation())])
+
+    diagnostic = StructuredJobEvaluator(client).evaluate_with_diagnostics(
+        canonical_job(), load_candidate_profile()
+    )
+
+    assert diagnostic.result.status == "success"
+    assert diagnostic.attempts == 2
+    assert diagnostic.first_pass_valid is False
 
 
 def test_invalid_output_after_retry_returns_nonfatal_error():

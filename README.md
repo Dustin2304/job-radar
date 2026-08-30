@@ -295,6 +295,62 @@ cases, eight explicit required-experience cases, three preferred-experience case
 six title-only cases, and several generic or misleading-title cases. Model selection
 and repeated evaluation belong to V2.7.2b.
 
+### Prompt Calibration
+
+V2.7.2b-1 separates prompt calibration from later model selection. The private frozen
+subset contains exactly eight jobs (two per recommendation class) and covers mandatory
+and optional gaps, required and preferred experience, missing descriptions, and
+multi-signal boundary cases. Its file hashes bind it to the unchanged 24-job snapshot
+and manual labels.
+
+Three prompt families are benchmarked against identical candidate, job, deterministic,
+and semantic inputs: `minimal`, `evidence_first`, and `conservative`. Models and runtime
+settings live only in `config/llm_benchmark.yaml`; the benchmark logic contains no model
+IDs. The current one-run screening baseline uses LM Studio's local-device llama.cpp
+runtime, 12,288 context tokens, maximum GPU offload, one parallel request, temperature
+0.2, 4,000 output tokens, model-default reasoning, strict JSON Schema, and seed 42.
+The configured anchor IDs are the IDs reported by the local `/v1/models` endpoint.
+
+The runner validates all frozen inputs before contacting a model, records each result
+incrementally in the ignored evaluation directory, and reports recommendation and
+ordinal quality, all score MAEs, experience-gap accuracy, mandatory/optional gap
+precision and recall, explicit absent-skill hallucinations, title-only behavior, schema
+retries and failures, latency, and repeated-run stability.
+
+```powershell
+.venv\Scripts\python.exe scripts\calibrate_llm_prompts.py --dry-run
+.venv\Scripts\python.exe scripts\calibrate_llm_prompts.py
+```
+
+Use `--runs 2` only for confirmation after the initial screen. A benchmark prompt is
+frozen only after it performs robustly across both anchors; this phase does not integrate
+LLM output into scraping or n8n.
+
+The one-run screen used the locally available `ornith-1.5-9b` and
+`ornith-1.5-35b-a3b` anchors. `qwen3.8-27b` was probed first but excluded from prompt
+calibration after its first request reached the fixed 300-second timeout. Across the
+two practical anchors, `evidence_first` had the best screening recommendation accuracy,
+lowest ordinal error, fewest large recommendation errors, best mandatory-gap recall,
+and lowest title-only gap-invention rate. It is frozen in the benchmark config with its
+prompt hash for subsequent model screening.
+
+The selected prompt was then confirmed with a second seed on both anchors (32 planned
+observations, 29 successful). Combined confirmation metrics were 37.9% exact
+recommendation accuracy, 1.03 mean ordinal error, 61.9% experience-gap accuracy, zero
+detected absent-skill hallucinations, 100% preliminary-status accuracy, 12.5%
+title-only invented-gap rate, 50% run-to-run recommendation stability, 9.4% failure
+rate, and 56.4 seconds median latency. These are calibration results, not deployment
+quality: model screening and reasoning/runtime calibration remain necessary before any
+pipeline integration.
+
+```powershell
+.venv\Scripts\python.exe scripts\summarize_llm_prompt_calibration.py `
+  --prompt evidence_first --runs-per-case 2 `
+  data\evaluation\llm-benchmark-results\prompt-calibration-screening.json `
+  data\evaluation\llm-benchmark-results\prompt-calibration-anchor-35b.json `
+  data\evaluation\llm-benchmark-results\prompt-calibration-evidence-confirmation.json
+```
+
 ## Description Data Quality
 
 Canonical jobs retain `description_status`, normalized `description_length`, and `description_source`. Missing descriptions never reject a job. Every scrape reports overall and per-source availability through `description_stats`.

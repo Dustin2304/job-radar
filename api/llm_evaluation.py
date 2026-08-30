@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -18,19 +18,34 @@ from .models import CandidateProfile, Job, LLMEvaluation, LLMEvaluationAttempt
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CANDIDATE_PROFILE_PATH = ROOT / "config" / "candidate_profile.yaml"
 
-SYSTEM_PROMPT = """You evaluate whether applying to a job is worthwhile for one candidate.
+PromptFamily = Literal["minimal", "evidence_first", "conservative"]
+
+SHARED_SYSTEM_PROMPT = """You evaluate whether applying to a job is worthwhile for one candidate.
 
 Only CANDIDATE PROFILE / facts, skills, and professional_strengths contain factual
 candidate information. CANDIDATE PROFILE / preferences describes desired roles, not
 candidate capabilities. Follow evaluation_guidance without turning it into new facts.
 Never infer candidate skills or experience from the job description, semantic matches,
-or deterministic analysis. If a mandatory requirement is unsupported by candidate
-facts, list it under missing_requirements. Do not treat nice-to-have requirements as
-mandatory; list unsupported optional requirements only under nice_to_have_gaps.
-Distinguish mandatory experience wording from preferences such as "ideally" or
-"preferred". Keep the deterministic pre-score, semantic similarities, and your own
-fit score conceptually separate. Return only JSON matching the supplied schema.
+or deterministic analysis. Keep the deterministic pre-score, semantic similarities,
+and your own fit score conceptually separate. Return only JSON matching the supplied
+schema. Do not output chain-of-thought or any text outside the JSON object.
 """
+
+PROMPT_INSTRUCTIONS: dict[PromptFamily, str] = {
+    "minimal": """Evaluate the job against the candidate using the provided profile,
+job data, existing analysis, and evaluation guidance.""",
+    "evidence_first": """Use this internal evaluation order without exposing your
+reasoning: (1) identify relevant job requirements, (2) separate mandatory from
+preferred requirements, (3) match requirements only against explicit candidate facts,
+(4) identify unsupported or missing requirements, (5) assess experience and seniority,
+(6) assess overall role fit, and (7) produce the structured evaluation.""",
+    "conservative": """Use the evidence-first order. Treat a missing mandatory
+requirement as a significant negative factor and a missing nice-to-have as a limited
+negative factor. Candidate facts not explicitly present are unknown or missing.
+Preferred experience above the candidate level is a concern, not an automatic reject.
+A mandatory multi-year experience gap is a strong negative factor. Missing descriptions
+require a preliminary evaluation. Never infer a related skill as direct experience.""",
+}
 
 
 class LLMServiceUnavailable(ConnectionError):
@@ -45,6 +60,13 @@ class ChatClient(Protocol):
     model: str
 
     def complete(self, messages: Sequence[Mapping[str, str]]) -> str: ...
+
+
+@dataclass(frozen=True)
+class EvaluationDiagnostics:
+    result: LLMEvaluationAttempt
+    attempts: int
+    first_pass_valid: bool
 
 
 @dataclass(frozen=True)
@@ -85,28 +107,35 @@ class LMStudioChatClient:
         model: str,
         timeout_seconds: float = 60,
         temperature: float = 0.1,
+        max_tokens: int | None = None,
+        seed: int | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.seed = seed
 
     def complete(self, messages: Sequence[Mapping[str, str]]) -> str:
-        payload = json.dumps(
-            {
-                "model": self.model,
-                "messages": list(messages),
-                "temperature": self.temperature,
-                "response_format": {
+        request_body: dict[str, object] = {
+            "model": self.model,
+            "messages": list(messages),
+            "temperature": self.temperature,
+            "response_format": {
                     "type": "json_schema",
                     "json_schema": {
                         "name": "job_evaluation",
                         "strict": True,
                         "schema": LLMEvaluation.model_json_schema(),
                     },
-                },
-            }
-        ).encode("utf-8")
+            },
+        }
+        if self.max_tokens is not None:
+            request_body["max_tokens"] = self.max_tokens
+        if self.seed is not None:
+            request_body["seed"] = self.seed
+        payload = json.dumps(request_body).encode("utf-8")
         request = Request(
             f"{self.base_url}/chat/completions",
             data=payload,
@@ -153,7 +182,10 @@ def _pre_score_payload(job: Job) -> dict[str, object] | None:
 
 
 def build_evaluation_messages(
-    job: Job, candidate_profile: CandidateProfile
+    job: Job,
+    candidate_profile: CandidateProfile,
+    *,
+    prompt_family: PromptFamily = "conservative",
 ) -> list[dict[str, str]]:
     evaluation_mode = (
         "complete" if job.description_status == "available" else "preliminary"
@@ -197,7 +229,10 @@ def build_evaluation_messages(
             "Separate mandatory gaps from optional nice-to-have gaps."
         )
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {
+            "role": "system",
+            "content": f"{SHARED_SYSTEM_PROMPT}\n{PROMPT_INSTRUCTIONS[prompt_family]}",
+        },
         {
             "role": "user",
             "content": f"{instruction}\n\nINPUT\n{json.dumps(payload, ensure_ascii=False)}",
@@ -208,24 +243,45 @@ def build_evaluation_messages(
 class StructuredJobEvaluator:
     """Validate untrusted model output and retry invalid output exactly once."""
 
-    def __init__(self, client: ChatClient) -> None:
+    def __init__(
+        self,
+        client: ChatClient,
+        *,
+        prompt_family: PromptFamily = "conservative",
+    ) -> None:
         self.client = client
+        self.prompt_family = prompt_family
 
     def evaluate(
         self, job: Job, candidate_profile: CandidateProfile
     ) -> LLMEvaluationAttempt:
-        messages = build_evaluation_messages(job, candidate_profile)
+        return self.evaluate_with_diagnostics(job, candidate_profile).result
+
+    def evaluate_with_diagnostics(
+        self, job: Job, candidate_profile: CandidateProfile
+    ) -> EvaluationDiagnostics:
+        messages = build_evaluation_messages(
+            job, candidate_profile, prompt_family=self.prompt_family
+        )
         validation_error: str | None = None
         for attempt in range(2):
             try:
                 content = self.client.complete(messages)
             except LLMServiceUnavailable as exc:
-                return LLMEvaluationAttempt(
-                    status="unavailable", model=self.client.model, error=str(exc)
+                return EvaluationDiagnostics(
+                    result=LLMEvaluationAttempt(
+                        status="unavailable", model=self.client.model, error=str(exc)
+                    ),
+                    attempts=attempt + 1,
+                    first_pass_valid=False,
                 )
             except LLMResponseError as exc:
-                return LLMEvaluationAttempt(
-                    status="error", model=self.client.model, error=str(exc)
+                return EvaluationDiagnostics(
+                    result=LLMEvaluationAttempt(
+                        status="error", model=self.client.model, error=str(exc)
+                    ),
+                    attempts=attempt + 1,
+                    first_pass_valid=False,
                 )
 
             try:
@@ -268,14 +324,25 @@ class StructuredJobEvaluator:
                     continue
                 break
 
-            return LLMEvaluationAttempt(
-                status="success", model=self.client.model, evaluation=evaluation
+            return EvaluationDiagnostics(
+                result=LLMEvaluationAttempt(
+                    status="success", model=self.client.model, evaluation=evaluation
+                ),
+                attempts=attempt + 1,
+                first_pass_valid=attempt == 0,
             )
 
-        return LLMEvaluationAttempt(
-            status="error",
-            model=self.client.model,
-            error=f"LLM output failed schema validation after one retry: {validation_error}",
+        return EvaluationDiagnostics(
+            result=LLMEvaluationAttempt(
+                status="error",
+                model=self.client.model,
+                error=(
+                    "LLM output failed schema validation after one retry: "
+                    f"{validation_error}"
+                ),
+            ),
+            attempts=2,
+            first_pass_valid=False,
         )
 
 
@@ -299,10 +366,14 @@ def get_structured_job_evaluator(
 
 __all__ = [
     "DEFAULT_CANDIDATE_PROFILE_PATH",
+    "EvaluationDiagnostics",
     "LLMEvaluationSettings",
     "LLMResponseError",
     "LLMServiceUnavailable",
     "LMStudioChatClient",
+    "PROMPT_INSTRUCTIONS",
+    "PromptFamily",
+    "SHARED_SYSTEM_PROMPT",
     "StructuredJobEvaluator",
     "build_evaluation_messages",
     "get_structured_job_evaluator",

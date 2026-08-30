@@ -1,0 +1,43 @@
+runtime:
+  provider: lm_studio
+  base_url: http://127.0.0.1:1234/v1
+  backend: local_device
+  engine: llama.cpp
+  context_length: 12288
+  gpu_offload: max
+  parallel_requests: 1
+  temperature: 0.2
+  max_output_tokens: 4000
+  reasoning_setting: model_default_on
+  structured_output: json_schema
+  timeout_seconds: 300
+  base_seed: 42
+
+prompt_calibration:
+  subset_path: data/evaluation/llm-prompt-calibration-subset.json
+  jobs_path: data/evaluation/llm-benchmark-jobs.json
+  labels_path: data/evaluation/llm-benchmark-labels.json
+  results_dir: data/evaluation/llm-benchmark-results
+  prompts:
+    - minimal
+    - evidence_first
+    - conservative
+  runs_per_case: 1
+  confirmation_runs_per_case: 2
+  frozen_benchmark_prompt:
+    family: evidence_first
+    sha256: d45a463ce9db714812eac5e8854ccde7e278083f8f947d2dac71bb7d4608c151
+    confirmed_runs_per_case: 2
+  anchor_models:
+    - id: ornith-1.5-9b
+      family: Ornith 1.5
+      quantization: Q8_0
+    - id: ornith-1.5-35b-a3b
+      family: Ornith 1.5 MoE
+      quantization: Q2_K
+
+known_absent_candidate_skills:
+  - Databricks
+  - Azure Data Factory
+  - SAP
+  - C#
