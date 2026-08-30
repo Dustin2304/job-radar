@@ -365,6 +365,7 @@ def get_semantic_classifier(
 
 def get_semantic_profile_classifier(
     config: Mapping[str, object] | None,
+    profiles_path: Path = DEFAULT_CAREER_PROFILES_PATH,
 ) -> SemanticProfileClassifier | None:
     settings = EmbeddingSettings.from_config(config)
     if not settings.enabled:
@@ -382,7 +383,7 @@ def get_semantic_profile_classifier(
         instruction=PROFILE_MATCH_INSTRUCTION,
         timeout_seconds=settings.timeout_seconds,
     )
-    profiles = load_career_profile_definitions()
+    profiles = load_career_profile_definitions(profiles_path)
     key = (profile_settings, tuple(profiles.items()))
     classifier = _PROFILE_CLASSIFIER_CACHE.get(key)
     if classifier is None:

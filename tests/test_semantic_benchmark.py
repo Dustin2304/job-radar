@@ -8,7 +8,9 @@ from pydantic import ValidationError
 from api.embeddings import load_category_definitions
 from api.semantic_benchmark import (
     SemanticRegressionCase,
+    calculate_confusion_matrix,
     calculate_regression_metrics,
+    calculate_top1_margin,
     load_regression_cases,
 )
 
@@ -124,6 +126,65 @@ def test_case_schema_rejects_labels_for_no_fit_case():
             taxonomy_fit="none",
             expected_primary=["automation"],
         )
+
+
+def test_confusion_matrix_uses_only_single_primary_cases():
+    cases = [
+        SemanticRegressionCase(
+            id="automation",
+            group="test",
+            title="Automation",
+            expected_primary=["automation_data"],
+        ),
+        SemanticRegressionCase(
+            id="project-miss",
+            group="test",
+            title="Project",
+            expected_primary=["technical_project_management"],
+        ),
+        SemanticRegressionCase(
+            id="multi",
+            group="test",
+            title="Multi",
+            expected_primary=["automation_data", "process_consulting"],
+        ),
+    ]
+    labels = [
+        "automation_data",
+        "technical_project_management",
+        "process_consulting",
+    ]
+
+    result = calculate_confusion_matrix(
+        cases,
+        {
+            "automation": labels,
+            "project-miss": [
+                "process_consulting",
+                "technical_project_management",
+                "automation_data",
+            ],
+            "multi": [
+                "automation_data",
+                "process_consulting",
+                "technical_project_management",
+            ],
+        },
+        label_names=labels,
+    )
+
+    assert result["evaluated_cases"] == 2
+    assert result["matrix"]["automation_data"]["automation_data"] == 1
+    assert (
+        result["matrix"]["technical_project_management"]["process_consulting"]
+        == 1
+    )
+
+
+def test_top1_margin_requires_sorted_pair():
+    assert calculate_top1_margin([0.8, 0.65, 0.4]) == pytest.approx(0.15)
+    with pytest.raises(ValueError, match="sorted"):
+        calculate_top1_margin([0.6, 0.7])
 
 
 def test_dataset_loader_rejects_unknown_category(tmp_path):

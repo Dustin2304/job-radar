@@ -239,6 +239,12 @@ profile matches. The full benchmark and 16-job live sample are documented in
 .venv\Scripts\python.exe scripts\evaluate_career_profiles.py
 ```
 
+V2.6.1 adds confusion matrices and similarity margins and validates the profiles
+against a local ignored snapshot of 35 manually labelled real jobs. The current
+profile wording retained 16/16 Top-1 matches, while an experimental version without
+seniority wording fell to 12/16. The committed profiles therefore remain unchanged.
+See [`docs/career-profile-real-world-v2.6.1.md`](docs/career-profile-real-world-v2.6.1.md).
+
 ## Description Data Quality
 
 Canonical jobs retain `description_status`, normalized `description_length`, and `description_source`. Missing descriptions never reject a job. Every scrape reports overall and per-source availability through `description_stats`.
@@ -290,11 +296,14 @@ docs/
   semantic-validation-v2.5.2.md # category calibration report
   semantic-regression-v2.5.3.md # frozen benchmark baseline
   career-profile-validation-v2.6.md # profile benchmark and live validation
+  career-profile-real-world-v2.6.1.md # ignored real-world benchmark and A/B result
 n8n/            # sanitized workflow + n8n-specific docs
 scripts/
   evaluate_semantic_categories.py # reproducible reference/live semantic evaluation
   evaluate_semantic_regression.py # frozen labelled benchmark evaluation
   evaluate_career_profiles.py # career-profile benchmark and optional live sample
+  capture_career_profile_snapshot.py # ignored real-job snapshot capture
+  label_career_profile_snapshot.py # apply local manual labels
 tests/          # pytest suite
 pyproject.toml
 ```

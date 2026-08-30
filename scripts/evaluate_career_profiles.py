@@ -9,6 +9,7 @@ import json
 import time
 from collections import Counter
 from pathlib import Path
+from statistics import mean, median
 
 from api.embeddings import (
     get_semantic_classifier,
@@ -22,7 +23,9 @@ from api.scorer import apply_pre_score, calculate_pre_score
 from api.scraper import load_config
 from api.semantic_benchmark import (
     SemanticRegressionCase,
+    calculate_confusion_matrix,
     calculate_regression_metrics,
+    calculate_top1_margin,
     load_regression_cases,
 )
 from api.sources.jobspy import fetch_jobs
@@ -47,6 +50,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--location", default="Karlsruhe")
     parser.add_argument("--country", default="Germany")
     parser.add_argument("--hours-old", type=int, default=336)
+    parser.add_argument(
+        "--compare-profiles",
+        type=Path,
+        help="Optional alternative career_profiles.yaml for an A/B comparison",
+    )
     parser.add_argument(
         "--summary-only",
         action="store_true",
@@ -130,20 +138,23 @@ def _top_matches(matches, limit: int = 3) -> list[dict[str, object]]:
     ]
 
 
-def main() -> None:
-    args = _parse_args()
-    dataset_path = args.dataset.resolve()
-    profiles = load_career_profile_definitions()
-    cases = load_regression_cases(dataset_path, category_names=list(profiles))
-    config = load_config()
-    profile_classifier = get_semantic_profile_classifier(config.get("embeddings"))
-    if profile_classifier is None:
-        raise RuntimeError("embeddings are disabled")
+def _summarize(values: list[float]) -> dict[str, float | int | None]:
+    if not values:
+        return {"count": 0, "mean": None, "median": None, "min": None, "max": None}
+    return {
+        "count": len(values),
+        "mean": mean(values),
+        "median": median(values),
+        "min": min(values),
+        "max": max(values),
+    }
 
+
+def _evaluate_cases(cases, classifier, profile_names: list[str]) -> dict[str, object]:
     rankings: dict[str, list[str]] = {}
     results: list[dict[str, object]] = []
     for case in cases:
-        classified = profile_classifier.classify(_case_job(case))
+        classified = classifier.classify(_case_job(case))
         if classified.profile_embedding_status != "success":
             raise RuntimeError(
                 f"profile embedding failed for {case.id}: "
@@ -155,6 +166,9 @@ def main() -> None:
         best_rank = min(
             (ranking.index(name) + 1 for name in expected if name in ranking),
             default=None,
+        )
+        margin = calculate_top1_margin(
+            [match.similarity for match in classified.profile_matches]
         )
         results.append(
             {
@@ -173,9 +187,99 @@ def main() -> None:
                     else None
                 ),
                 "best_primary_rank": best_rank,
+                "top1_margin": round(margin, 4),
                 "profiles": _top_matches(classified.profile_matches),
             }
         )
+
+    matched_margins = [
+        result["top1_margin"]
+        for result in results
+        if result["taxonomy_fit"] == "matched"
+    ]
+    single_margins = [
+        result["top1_margin"]
+        for result in results
+        if result["taxonomy_fit"] == "matched"
+        and len(result["expected_primary"]) == 1
+    ]
+    multi_margins = [
+        result["top1_margin"]
+        for result in results
+        if result["taxonomy_fit"] == "matched"
+        and len(result["expected_primary"]) > 1
+    ]
+    no_fit_results = [
+        result for result in results if result["taxonomy_fit"] == "none"
+    ]
+    regressions = [
+        {
+            "id": result["id"],
+            "title": result["title"],
+            "expected_primary": result["expected_primary"],
+            "best_primary_rank": result["best_primary_rank"],
+            "top1_margin": result["top1_margin"],
+            "top_profiles": [profile["name"] for profile in result["profiles"]],
+        }
+        for result in results
+        if result["taxonomy_fit"] == "matched" and not result["top1_correct"]
+    ]
+    return {
+        "metrics": calculate_regression_metrics(cases, rankings),
+        "confusion_matrix": calculate_confusion_matrix(
+            cases,
+            rankings,
+            label_names=profile_names,
+        ),
+        "margin_summary": {
+            "all_matched": _summarize(matched_margins),
+            "single_primary": _summarize(single_margins),
+            "multi_primary": _summarize(multi_margins),
+        },
+        "no_fit_summary": {
+            "count": len(no_fit_results),
+            "top_profile_distribution": dict(
+                Counter(result["profiles"][0]["name"] for result in no_fit_results)
+            ),
+            "top1_similarity": _summarize(
+                [result["profiles"][0]["similarity"] for result in no_fit_results]
+            ),
+            "top1_margin": _summarize(
+                [result["top1_margin"] for result in no_fit_results]
+            ),
+        },
+        "regressions": regressions,
+        "results": results,
+    }
+
+
+def main() -> None:
+    args = _parse_args()
+    dataset_path = args.dataset.resolve()
+    profiles = load_career_profile_definitions()
+    cases = load_regression_cases(dataset_path, category_names=list(profiles))
+    config = load_config()
+    profile_classifier = get_semantic_profile_classifier(config.get("embeddings"))
+    if profile_classifier is None:
+        raise RuntimeError("embeddings are disabled")
+    baseline = _evaluate_cases(cases, profile_classifier, list(profiles))
+
+    comparison: dict[str, object] | None = None
+    if args.compare_profiles:
+        comparison_path = args.compare_profiles.resolve()
+        comparison_profiles = load_career_profile_definitions(comparison_path)
+        if set(comparison_profiles) != set(profiles):
+            raise ValueError("comparison profile names must match the baseline")
+        comparison_classifier = get_semantic_profile_classifier(
+            config.get("embeddings"), comparison_path
+        )
+        if comparison_classifier is None:
+            raise RuntimeError("embeddings are disabled")
+        comparison = {
+            "profiles_path": str(comparison_path),
+            "profiles_sha256": hashlib.sha256(comparison_path.read_bytes()).hexdigest(),
+            **_evaluate_cases(cases, comparison_classifier, list(comparison_profiles)),
+        }
 
     live_results: list[dict[str, object]] = []
     failures: list[dict[str, str]] = []
@@ -206,17 +310,6 @@ def main() -> None:
                 }
             )
 
-    regressions = [
-        {
-            "id": result["id"],
-            "title": result["title"],
-            "expected_primary": result["expected_primary"],
-            "best_primary_rank": result["best_primary_rank"],
-            "top_profiles": [profile["name"] for profile in result["profiles"]],
-        }
-        for result in results
-        if result["taxonomy_fit"] == "matched" and not result["top1_correct"]
-    ]
     live_summary = {
         "total": len(live_results),
         "description_available": sum(
@@ -261,15 +354,30 @@ def main() -> None:
             {
                 "dataset": str(dataset_path),
                 "dataset_sha256": hashlib.sha256(dataset_path.read_bytes()).hexdigest(),
+                "profiles_path": str(ROOT / "config" / "career_profiles.yaml"),
+                "profiles_sha256": hashlib.sha256(
+                    (ROOT / "config" / "career_profiles.yaml").read_bytes()
+                ).hexdigest(),
                 "model": config["embeddings"]["model"],
                 "dimensions": config["embeddings"]["dimensions"],
                 "weights": {
                     "title": config["embeddings"]["title_weight"],
                     "description": config["embeddings"]["description_weight"],
                 },
-                "metrics": calculate_regression_metrics(cases, rankings),
-                "regressions": regressions,
-                "cases": [] if args.summary_only else results,
+                "metrics": baseline["metrics"],
+                "confusion_matrix": baseline["confusion_matrix"],
+                "margin_summary": baseline["margin_summary"],
+                "no_fit_summary": baseline["no_fit_summary"],
+                "regressions": baseline["regressions"],
+                "cases": [] if args.summary_only else baseline["results"],
+                "comparison": (
+                    {
+                        **comparison,
+                        "results": [] if args.summary_only else comparison["results"],
+                    }
+                    if comparison is not None
+                    else None
+                ),
                 "live_summary": live_summary,
                 "live": [] if args.summary_only else live_results,
                 "live_failures": failures,

@@ -118,8 +118,51 @@ def calculate_regression_metrics(
     }
 
 
+def calculate_confusion_matrix(
+    cases: Sequence[SemanticRegressionCase],
+    rankings: Mapping[str, Sequence[str]],
+    *,
+    label_names: Sequence[str],
+) -> dict[str, object]:
+    """Build a Top-1 confusion matrix for unambiguous single-primary cases."""
+
+    labels = list(label_names)
+    if len(labels) != len(set(labels)):
+        raise ValueError("confusion-matrix labels must be unique")
+    known_labels = set(labels)
+    matrix = {
+        expected: {predicted: 0 for predicted in labels} for expected in labels
+    }
+    evaluated = 0
+    for case in cases:
+        if case.taxonomy_fit != "matched" or len(case.expected_primary) != 1:
+            continue
+        ranking = list(rankings.get(case.id, ()))
+        if not ranking:
+            raise ValueError(f"case {case.id!r} has no category ranking")
+        expected = case.expected_primary[0]
+        predicted = ranking[0]
+        if expected not in known_labels or predicted not in known_labels:
+            raise ValueError(f"case {case.id!r} uses a label outside the matrix")
+        matrix[expected][predicted] += 1
+        evaluated += 1
+    return {"evaluated_cases": evaluated, "labels": labels, "matrix": matrix}
+
+
+def calculate_top1_margin(similarities: Sequence[float]) -> float:
+    """Return the similarity distance between the first and second match."""
+
+    if len(similarities) < 2:
+        raise ValueError("top-1 margin requires at least two similarities")
+    if similarities[0] < similarities[1]:
+        raise ValueError("similarities must be sorted from strongest to weakest")
+    return similarities[0] - similarities[1]
+
+
 __all__ = [
     "SemanticRegressionCase",
+    "calculate_confusion_matrix",
     "calculate_regression_metrics",
+    "calculate_top1_margin",
     "load_regression_cases",
 ]
