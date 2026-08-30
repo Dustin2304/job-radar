@@ -12,6 +12,7 @@ def test_configuration_separates_discovery_filters_signals_and_scoring():
         "signals",
         "pre_score",
         "embeddings",
+        "llm_evaluation",
     }
     assert "legacy_scoring" not in config
     assert config["search"]["query_groups"]
@@ -46,3 +47,5 @@ def test_configuration_separates_discovery_filters_signals_and_scoring():
     assert config["embeddings"]["dimensions"] == 1024
     assert config["embeddings"]["title_weight"] == 0.4
     assert config["embeddings"]["description_weight"] == 0.6
+    assert config["llm_evaluation"]["enabled"] is False
+    assert config["llm_evaluation"]["model"] == ""

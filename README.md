@@ -7,6 +7,7 @@ A personal job radar for junior-to-mid roles that scrapes Indeed and LinkedIn vi
 - Excludes only clear seniority and unsuitable employment-type title patterns before scoring.
 - Calculates an explainable component-based `0-100` pre-score without using it as an acceptance gate.
 - Adds semantic role-category and career-profile similarities through an optional local LM Studio embedding service.
+- Provides a disabled-by-default structured LM Studio evaluation foundation for the next benchmark phase.
 - Serves fresh, cached, and aggregated results through FastAPI endpoints backed by a local JSON cache.
 
 ## Architecture
@@ -181,7 +182,9 @@ pytest tests/ -v
 | `pre_score.role` | Stronger title evidence and weaker description evidence, capped at 25 |
 | `pre_score.location` | Transparent remote, hybrid, preferred-region, other-region, and unknown scores, capped at 20 |
 | `embeddings` | LM Studio endpoint/model, vector dimensions, instruction, and title/description weights |
+| `llm_evaluation` | Disabled V2.7.1 LM Studio chat endpoint, future model identifier, timeout, and temperature |
 | `config/categories.yaml` | English semantic descriptions embedded once and retained as vectors only in process memory |
+| `config/candidate_profile.yaml` | Authoritative candidate facts kept separate from target-role preferences |
 | `companies` | Optional watchlist metadata; career preference is not part of the V2.4 pre-score |
 
 ## Scoring At a Glance
@@ -245,6 +248,27 @@ profile wording retained 16/16 Top-1 matches, while an experimental version with
 seniority wording fell to 12/16. The committed profiles therefore remain unchanged.
 See [`docs/career-profile-real-world-v2.6.1.md`](docs/career-profile-real-world-v2.6.1.md).
 
+## Structured LLM Evaluation Foundation
+
+V2.7.1 introduces the isolated foundation for a later qualitative job evaluation.
+It is not yet called by the scraping pipeline or exposed to n8n. Candidate facts and
+target preferences are validated separately from `config/candidate_profile.yaml`.
+The prompt passes the full normalized description, deterministic pre-score with its
+components, semantic categories, career-profile matches, and description data quality
+without combining their scores.
+
+LM Studio is addressed through its OpenAI-compatible `/chat/completions` endpoint.
+The request supplies the strict JSON Schema generated from `LLMEvaluation`. Returned
+content is treated as untrusted and parsed directly by Pydantic: invalid output gets
+exactly one retry and is otherwise recorded as an error without regex repair. A service
+outage produces an `unavailable` attempt rather than dropping the job. Missing
+descriptions require a `preliminary` evaluation; available descriptions require a
+`complete` evaluation.
+
+The feature remains disabled and has no selected model in `config.yaml`. V2.7.2 will
+compare at least two local models against manually labelled real jobs before one is
+selected or pipeline integration begins.
+
 ## Description Data Quality
 
 Canonical jobs retain `description_status`, normalized `description_length`, and `description_source`. Missing descriptions never reject a job. Every scrape reports overall and per-source availability through `description_stats`.
@@ -261,7 +285,7 @@ A live sample on 2026-08-30 produced:
 No request errors or HTTP 429 responses occurred in these small samples. The enriched LinkedIn run was roughly 12 times slower than the equivalent normal run, so `linkedin_fetch_description` remains disabled by default. The planned embedding rule is explicit: missing descriptions use `title_only`; available descriptions use `title_and_description`. Blanket enrichment is deferred in favor of targeted enrichment after a later preselection step.
 
 ## Tests
-The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, semantic cosine similarity and weighting, cached category and career-profile vectors, regression-dataset validation and ranking metrics, independent embedding-service failure states, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
+The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, semantic cosine similarity and weighting, cached category and career-profile vectors, regression-dataset validation and ranking metrics, independent embedding-service failure states, strict LLM output validation and retry behavior, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
 
 ## Limitations
 - Focused on German/DACH search coverage, currently configured around Karlsruhe, Germany.
@@ -270,6 +294,7 @@ The test suite covers canonical normalization, stable IDs, JobSpy isolation, str
 - LinkedIn detail enrichment is deliberately disabled by default because the measured sample was substantially slower and larger runs may encounter rate limits.
 - Semantic categories remain observational signals and never gate a job in V2.5.
 - Local semantic classification requires a running LM Studio server and a matching configured embedding model; service failure is nonfatal.
+- Structured LLM evaluation is foundation-only and disabled until the V2.7.2 model benchmark is complete.
 - No persistence layer beyond a local file cache.
 - No authentication on the FastAPI endpoints; intended for local or internal use.
 
@@ -280,6 +305,7 @@ api/
   scraper.py       # broad search orchestration and hard-filter integration
   scorer.py        # explainable component-based pre-score
   embeddings.py    # LM Studio client + cached category/profile matching
+  llm_evaluation.py # structured prompt, chat client, validation, and nonfatal statuses
   models.py        # canonical and V1 response models
   normalization.py # raw source data to canonical Job
   compatibility.py # canonical Job to existing V1 API response
@@ -287,8 +313,9 @@ api/
   observability.py  # description availability summaries by source
   semantic_benchmark.py # persisted semantic labels and ranking metrics
   sources/jobspy.py # JobSpy-specific fetching
-config.yaml     # discovery, filters, signals, scoring, and embedding settings
+config.yaml     # discovery, filters, signals, scoring, embedding, and LLM settings
 config/
+  candidate_profile.yaml # authoritative facts separated from role preferences
   categories.yaml # semantic category descriptions
   career_profiles.yaml # target career-direction descriptions
 docs/

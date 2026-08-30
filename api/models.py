@@ -1,7 +1,68 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class StrictModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class CandidateEducation(StrictModel):
+    degree: str = Field(min_length=1)
+
+
+class CandidateExperience(StrictModel):
+    area: str = Field(min_length=1)
+    level: str | None = None
+    details: list[str] = Field(min_length=1)
+
+
+class CandidateFacts(StrictModel):
+    education: list[CandidateEducation] = Field(default_factory=list)
+    experience: list[CandidateExperience] = Field(default_factory=list)
+
+
+class CandidatePreferences(StrictModel):
+    target_seniority: list[str] = Field(default_factory=list)
+    target_directions: list[str] = Field(default_factory=list)
+
+
+class CandidateProfile(StrictModel):
+    facts: CandidateFacts
+    preferences: CandidatePreferences
+
+
+class LLMEvaluation(StrictModel):
+    evaluation_status: Literal["complete", "preliminary"]
+    fit_score: int = Field(ge=0, le=100)
+    recommendation: Literal["strong_match", "review", "weak_match", "reject"]
+    role_fit: int = Field(ge=0, le=100)
+    experience_fit: int = Field(ge=0, le=100)
+    skills_fit: int = Field(ge=0, le=100)
+    seniority_fit: int = Field(ge=0, le=100)
+    matched_requirements: list[str]
+    missing_requirements: list[str]
+    nice_to_have_gaps: list[str]
+    concerns: list[str]
+    experience_requirement: str | None
+    experience_gap: bool | None
+    summary: str = Field(min_length=1)
+
+
+class LLMEvaluationAttempt(StrictModel):
+    status: Literal["success", "unavailable", "error"]
+    model: str
+    evaluation: LLMEvaluation | None = None
+    error: str | None = None
+
+    @model_validator(mode="after")
+    def evaluation_matches_status(self):
+        if self.status == "success" and self.evaluation is None:
+            raise ValueError("successful LLM attempts require an evaluation")
+        if self.status != "success" and self.evaluation is not None:
+            raise ValueError("failed LLM attempts cannot contain an evaluation")
+        return self
 
 
 class CategoryMatch(BaseModel):
@@ -180,6 +241,11 @@ class ScrapeResponse(BaseModel):
 
 
 __all__ = [
+    "CandidateEducation",
+    "CandidateExperience",
+    "CandidateFacts",
+    "CandidatePreferences",
+    "CandidateProfile",
     "CategoryMatch",
     "DescriptionSourceStats",
     "DescriptionStats",
@@ -187,6 +253,8 @@ __all__ = [
     "FilterResult",
     "Job",
     "JobResult",
+    "LLMEvaluation",
+    "LLMEvaluationAttempt",
     "PreScoreResult",
     "ProfileMatch",
     "ScoreComponent",

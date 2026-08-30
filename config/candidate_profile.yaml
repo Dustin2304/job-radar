@@ -1,0 +1,37 @@
+facts:
+  education:
+    - degree: "Bachelor International Management"
+
+  experience:
+    - area: "process_automation"
+      level: "practical"
+      details:
+        - "Power Automate"
+        - "Power Apps"
+        - "Copilot Studio"
+        - "n8n"
+        - "APIs"
+
+    - area: "application_development"
+      details:
+        - "Python"
+        - "TypeScript"
+        - "ETL"
+        - "REST APIs"
+
+    - area: "data_reporting"
+      details:
+        - "Power BI"
+        - "Power Query"
+        - "Dataverse"
+
+preferences:
+  target_seniority:
+    - "junior"
+    - "entry_level"
+
+  target_directions:
+    - "automation"
+    - "data"
+    - "technical_project_management"
+    - "process_consulting"

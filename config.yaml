@@ -241,5 +241,14 @@ embeddings:
     Given a job posting, identify the semantic role categories that best describe it
   timeout_seconds: 30
 
+# V2.7.1 foundation only. Pipeline integration and model selection follow after
+# a manually labelled comparison benchmark.
+llm_evaluation:
+  enabled: false
+  base_url: "http://localhost:1234/v1"
+  model: ""
+  timeout_seconds: 60
+  temperature: 0.1
+
 # Optional watchlist metadata. Career preference is intentionally not part of V2.4.
 companies: []
