@@ -35,6 +35,10 @@ def to_v1_job_result(
         skills_required=[],
         pre_score=job.pre_score,
         pre_score_components=job.pre_score_components,
+        categories=job.categories,
+        embedding_input=job.embedding_input,
+        embedding_model=job.embedding_model,
+        embedding_status=job.embedding_status,
         score=round(job.pre_score or 0),
         score_reason=summarize_pre_score(job.pre_score_components),
     )

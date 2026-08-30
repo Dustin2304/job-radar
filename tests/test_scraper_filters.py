@@ -140,6 +140,10 @@ def test_run_scrape_keeps_v1_response_contract(monkeypatch):
         "skills_required",
         "pre_score",
         "pre_score_components",
+        "categories",
+        "embedding_input",
+        "embedding_model",
+        "embedding_status",
         "score",
         "score_reason",
     }
@@ -147,6 +151,8 @@ def test_run_scrape_keeps_v1_response_contract(monkeypatch):
     assert response.jobs[0].pre_score is not None
     assert response.jobs[0].score == round(response.jobs[0].pre_score)
     assert response.jobs[0].pre_score_components is not None
+    assert response.jobs[0].embedding_status == "unavailable"
+    assert response.jobs[0].categories == []
     assert response.description_stats.model_dump() == {
         "total": 2,
         "available": 2,

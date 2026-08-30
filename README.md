@@ -6,17 +6,19 @@ A personal job radar for junior-to-mid roles that scrapes Indeed and LinkedIn vi
 - Runs broad discovery queries from `config.yaml` across configured locations.
 - Excludes only clear seniority and unsuitable employment-type title patterns before scoring.
 - Calculates an explainable component-based `0-100` pre-score without using it as an acceptance gate.
+- Adds semantic role-category similarities through an optional local LM Studio embedding service.
 - Serves fresh, cached, and aggregated results through FastAPI endpoints backed by a local JSON cache.
 
 ## Architecture
 ```text
 config.yaml --> scraper orchestration --> JobSpy source --> normalization --> canonical Job
-                                                                            --> hard filter --> pre-score --> V1 adapter --> /jobs
-                                                                                                              |
-                                                                                                      JSON cache
-                                                                                                              |
-                                                                                                              v
-                                                                                         n8n --> Ollama reranking --> HTML email
+                                                                            --> hard filter --> pre-score
+                                                                                               --> semantic categories --> V1 adapter --> /jobs
+                                                                                                                           |
+                                                                                                                   JSON cache
+                                                                                                                           |
+                                                                                                                           v
+                                                                                                      n8n --> Ollama reranking --> HTML email
 ```
 The API scoring step is rule-based on purpose: it is deterministic, free to run, and easy to test. That makes it a good fit for a local screening service with transparent ranking logic. Optional LLM-based reranking is included in the `n8n/` workflow as a downstream presentation layer, not as part of the API scoring logic.
 
@@ -109,6 +111,13 @@ pytest tests/ -v
         "role": {"score": 15, "max_score": 25, "matched_signals": ["automation", "digitalization", "process_optimization", "integration"], "notes": ["title: automation", "description: digitalization", "description: process_optimization", "description: integration"]},
         "location": {"score": 17, "max_score": 20, "matched_signals": ["preferred_region", "onsite"], "notes": ["onsite role in preferred region"]}
       },
+      "categories": [
+        {"name": "automation", "similarity": 0.83, "title_similarity": 0.88, "description_similarity": 0.80},
+        {"name": "process_management", "similarity": 0.76, "title_similarity": 0.70, "description_similarity": 0.80}
+      ],
+      "embedding_input": "title_and_description",
+      "embedding_model": "qwen3-embedding-0.6b",
+      "embedding_status": "success",
       "score": 72,
       "score_reason": "Seniority 25/25, Technologies 15/30, Role 15/25, Location 17/20"
     },
@@ -170,10 +179,31 @@ pytest tests/ -v
 | `pre_score.technologies` | Points per unique named technology signal, capped at 30 |
 | `pre_score.role` | Stronger title evidence and weaker description evidence, capped at 25 |
 | `pre_score.location` | Transparent remote, hybrid, preferred-region, other-region, and unknown scores, capped at 20 |
+| `embeddings` | LM Studio endpoint/model, vector dimensions, instruction, and title/description weights |
+| `config/categories.yaml` | English semantic descriptions embedded once and retained as vectors only in process memory |
 | `companies` | Optional watchlist metadata; career preference is not part of the V2.4 pre-score |
 
 ## Scoring At a Glance
 Every accepted job receives four stored components: seniority `0–25`, technologies `0–30`, role signals `0–25`, and location/work model `0–20`. Each component contains its score, maximum, matched signal names, and notes. Missing seniority and location information receive explicit neutral values rather than automatic rejection. The API retains every hard-filter-accepted job regardless of its pre-score. The old `score` and `score_reason` fields mirror the new result only for compatibility with the existing n8n workflow.
+
+## Semantic Category Classification
+
+V2.5 adds an observational semantic layer after the deterministic pre-score. It does not reject jobs, alter the pre-score, or interpret cosine similarity as a percentage fit. The configured categories are embedded once per process and cached in memory. Raw vectors are never attached to canonical jobs, API responses, or the JSON cache.
+
+The title is always embedded as an instructed query. An available description is embedded separately. Each category result stores title similarity, optional description similarity, and a combined similarity sorted from strongest to weakest:
+
+```text
+description available:  0.4 * title similarity + 0.6 * description similarity
+description missing:    1.0 * title similarity
+```
+
+The weights and English task instruction are configurable. Qwen3-Embedding-0.6B is the first candidate because it supports multilingual input, instructions, and up to 1024 dimensions. To use it:
+
+1. Install and start LM Studio's local server on port `1234`.
+2. Download/load a Qwen3-Embedding-0.6B embedding build supported by LM Studio.
+3. Read the exact identifier from `GET http://localhost:1234/v1/models` and set `embeddings.model` in `config.yaml`.
+
+If the server cannot be reached, the model is unavailable, or a response is invalid, each job remains in the result with empty `categories` and `embedding_status` set to `unavailable` or `error`. Successful results expose `embedding_input` as either `title_only` or `title_and_description` and identify the configured model. A similarity threshold is deliberately absent until real-job calibration has been completed.
 
 ## Description Data Quality
 
@@ -191,13 +221,15 @@ A live sample on 2026-08-30 produced:
 No request errors or HTTP 429 responses occurred in these small samples. The enriched LinkedIn run was roughly 12 times slower than the equivalent normal run, so `linkedin_fetch_description` remains disabled by default. The planned embedding rule is explicit: missing descriptions use `title_only`; available descriptions use `title_and_description`. Blanket enrichment is deferred in favor of targeted enrichment after a later preselection step.
 
 ## Tests
-The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, representative scoring fixtures, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
+The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, semantic cosine similarity and weighting, cached category vectors, embedding-service failure fallback, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
 
 ## Limitations
 - Focused on German/DACH search coverage, currently configured around Karlsruhe, Germany.
 - Depends on `python-jobspy`, so rate limits and source-site markup changes can affect Indeed and LinkedIn scraping.
 - Some source results omit the full description. They remain eligible and are explicitly measured through description metadata and per-source statistics.
 - LinkedIn detail enrichment is deliberately disabled by default because the measured sample was substantially slower and larger runs may encounter rate limits.
+- Semantic categories remain uncalibrated observational signals and never gate a job in V2.5.
+- Local semantic classification requires a running LM Studio server and a matching configured embedding model; service failure is nonfatal.
 - No persistence layer beyond a local file cache.
 - No authentication on the FastAPI endpoints; intended for local or internal use.
 
@@ -207,13 +239,16 @@ api/
   main.py          # FastAPI app + endpoints
   scraper.py       # broad search orchestration and hard-filter integration
   scorer.py        # explainable component-based pre-score
+  embeddings.py    # LM Studio client + cached semantic category classification
   models.py        # canonical and V1 response models
   normalization.py # raw source data to canonical Job
   compatibility.py # canonical Job to existing V1 API response
   filters.py        # explainable high-confidence hard exclusions
   observability.py  # description availability summaries by source
   sources/jobspy.py # JobSpy-specific fetching
-config.yaml     # discovery, hard filters, positive signals, pre-score rules
+config.yaml     # discovery, filters, signals, scoring, and embedding settings
+config/
+  categories.yaml # semantic category descriptions
 n8n/            # sanitized workflow + n8n-specific docs
 tests/          # pytest suite
 pyproject.toml

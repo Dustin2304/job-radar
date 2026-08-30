@@ -1,0 +1,35 @@
+categories:
+  automation:
+    description: >
+      Roles focused on automating business processes, workflows and applications
+      through software, APIs, scripting, integration tools or low-code platforms.
+
+  data:
+    description: >
+      Roles involving data engineering, ETL, data pipelines, databases, cloud data
+      platforms and data integration.
+
+  business_intelligence:
+    description: >
+      Roles involving reporting, dashboards, analytics, business intelligence,
+      Power BI and data visualization.
+
+  process_management:
+    description: >
+      Roles involving business process analysis, optimization, digital
+      transformation and operational excellence.
+
+  project_management:
+    description: >
+      Roles involving coordination and management of technical or digital projects,
+      requirements, stakeholders and implementation.
+
+  supply_chain:
+    description: >
+      Roles involving logistics, supply chain management, planning, material flows
+      and supply-chain processes.
+
+  consulting:
+    description: >
+      Technology or business consulting focused on digitalization, IT, data,
+      processes or automation.

@@ -229,5 +229,17 @@ pre_score:
     other_onsite_score: 5
     unknown_score: 10
 
+embeddings:
+  enabled: true
+  base_url: "http://localhost:1234/v1"
+  # Use the exact identifier returned by LM Studio's GET /v1/models endpoint.
+  model: "qwen3-embedding-0.6b"
+  dimensions: 1024
+  title_weight: 0.4
+  description_weight: 0.6
+  instruction: >
+    Given a job posting, identify the semantic role categories that best describe it
+  timeout_seconds: 30
+
 # Optional watchlist metadata. Career preference is intentionally not part of V2.4.
 companies: []
