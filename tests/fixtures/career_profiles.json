@@ -1,0 +1,218 @@
+[
+  {
+    "id": "junior-automation-engineer",
+    "group": "automation_data",
+    "title": "Junior Automation Engineer",
+    "semantic_summary": "Builds workflow automation with Python, APIs and low-code platforms.",
+    "expected_primary": ["automation_data"],
+    "acceptable_secondary": ["data_bi"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "python-integration-developer",
+    "group": "automation_data",
+    "title": "Junior Python Integration Developer",
+    "semantic_summary": "Develops Python services, APIs and automated system integrations.",
+    "expected_primary": ["automation_data"],
+    "acceptable_secondary": ["data_bi"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "rpa-power-platform-developer",
+    "group": "automation_data",
+    "title": "RPA and Power Platform Developer",
+    "semantic_summary": "Implements robotic and low-code process automation solutions.",
+    "expected_primary": ["automation_data"],
+    "acceptable_secondary": ["process_consulting"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "cloud-automation-specialist",
+    "group": "automation_data",
+    "title": "Cloud Automation Specialist",
+    "semantic_summary": "Automates cloud workflows, data flows and platform integrations.",
+    "expected_primary": ["automation_data"],
+    "acceptable_secondary": ["data_bi"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "technical-project-coordinator",
+    "group": "technical_project_management",
+    "title": "Technical Project Coordinator",
+    "semantic_summary": "Coordinates IT workstreams, requirements, stakeholders and delivery.",
+    "expected_primary": ["technical_project_management"],
+    "acceptable_secondary": ["process_consulting"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "junior-it-project-manager",
+    "group": "technical_project_management",
+    "title": "Junior IT Project Manager",
+    "semantic_summary": "Plans digital implementation projects and manages scope and risks.",
+    "expected_primary": ["technical_project_management"],
+    "acceptable_secondary": ["process_consulting"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "implementation-project-manager",
+    "group": "technical_project_management",
+    "title": "IT Implementation Project Manager",
+    "semantic_summary": "Leads an IT system implementation from requirements to rollout.",
+    "expected_primary": ["technical_project_management"],
+    "acceptable_secondary": ["process_consulting"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "digital-product-delivery-coordinator",
+    "group": "technical_project_management",
+    "title": "Digital Product Delivery Coordinator",
+    "semantic_summary": "Coordinates product delivery, technical teams and stakeholder expectations.",
+    "expected_primary": ["technical_project_management"],
+    "acceptable_secondary": ["process_consulting"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "business-process-consultant",
+    "group": "process_consulting",
+    "title": "Business Process Consultant",
+    "semantic_summary": "Advises clients on process analysis, redesign and digital change.",
+    "expected_primary": ["process_consulting"],
+    "acceptable_secondary": ["technical_project_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "junior-digital-transformation-consultant",
+    "group": "process_consulting",
+    "title": "Junior Digital Transformation Consultant",
+    "semantic_summary": "Supports technology-enabled transformation and process optimization.",
+    "expected_primary": ["process_consulting"],
+    "acceptable_secondary": ["technical_project_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "process-analyst-technology-change",
+    "group": "process_consulting",
+    "title": "Business Process Analyst - Technology Change",
+    "semantic_summary": "Analyzes business processes and prepares technology-supported improvements.",
+    "expected_primary": ["process_consulting"],
+    "acceptable_secondary": ["automation_data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "operational-excellence-consultant",
+    "group": "process_consulting",
+    "title": "Operational Excellence Consultant",
+    "semantic_summary": "Consults on continuous improvement and organizational process optimization.",
+    "expected_primary": ["process_consulting"],
+    "acceptable_secondary": ["technical_project_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "junior-data-engineer",
+    "group": "data_bi",
+    "title": "Junior Data Engineer",
+    "semantic_summary": "Builds ETL pipelines, SQL models and cloud data platforms.",
+    "expected_primary": ["data_bi"],
+    "acceptable_secondary": ["automation_data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "business-intelligence-analyst",
+    "group": "data_bi",
+    "title": "Business Intelligence Analyst",
+    "semantic_summary": "Creates reporting models, dashboards and business analytics.",
+    "expected_primary": ["data_bi"],
+    "acceptable_secondary": ["automation_data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "power-bi-developer",
+    "group": "data_bi",
+    "title": "Junior Power BI Developer",
+    "semantic_summary": "Develops Power BI dashboards, reports and semantic data models.",
+    "expected_primary": ["data_bi"],
+    "acceptable_secondary": ["automation_data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "analytics-engineer",
+    "group": "data_bi",
+    "title": "Analytics Engineer",
+    "semantic_summary": "Transforms cloud data with SQL for analytics and reporting.",
+    "expected_primary": ["data_bi"],
+    "acceptable_secondary": ["automation_data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "data-automation-consultant",
+    "group": "multi_profile",
+    "title": "Data & Automation Consultant",
+    "semantic_summary": "Advises clients and implements automated data processing solutions.",
+    "expected_primary": ["automation_data", "process_consulting"],
+    "acceptable_secondary": ["data_bi"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "technical-implementation-consultant",
+    "group": "multi_profile",
+    "title": "Technical Implementation Consultant",
+    "semantic_summary": "Coordinates requirements and implements digital systems for clients.",
+    "expected_primary": ["technical_project_management", "process_consulting"],
+    "acceptable_secondary": ["automation_data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "bi-automation-engineer",
+    "group": "multi_profile",
+    "title": "BI Automation Engineer",
+    "semantic_summary": "Automates data pipelines and reporting workflows using Python and SQL.",
+    "expected_primary": ["automation_data", "data_bi"],
+    "acceptable_secondary": [],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "digital-process-project-manager",
+    "group": "multi_profile",
+    "title": "Digital Process Project Manager",
+    "semantic_summary": "Leads process-improvement projects and coordinates digital implementation.",
+    "expected_primary": ["technical_project_management", "process_consulting"],
+    "acceptable_secondary": ["automation_data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "business-analyst-automation-opportunities",
+    "group": "multi_profile",
+    "title": "Business Analyst - Automation Opportunities",
+    "semantic_summary": "Analyzes processes and identifies feasible technical automation use cases.",
+    "expected_primary": ["automation_data", "process_consulting"],
+    "acceptable_secondary": ["technical_project_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "data-platform-project-lead",
+    "group": "multi_profile",
+    "title": "Data Platform Project Lead",
+    "semantic_summary": "Coordinates delivery of a cloud data platform and its engineering teams.",
+    "expected_primary": ["technical_project_management", "data_bi"],
+    "acceptable_secondary": ["automation_data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "supply-chain-planner",
+    "group": "no_profile_fit",
+    "title": "Supply Chain Planner",
+    "semantic_summary": "Plans inventory, material availability and supply operations.",
+    "expected_primary": [],
+    "acceptable_secondary": [],
+    "taxonomy_fit": "none"
+  },
+  {
+    "id": "hr-payroll-specialist",
+    "group": "no_profile_fit",
+    "title": "HR Payroll Specialist",
+    "semantic_summary": "Processes payroll and supports compensation administration.",
+    "expected_primary": [],
+    "acceptable_secondary": [],
+    "taxonomy_fit": "none"
+  }
+]

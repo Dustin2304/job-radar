@@ -1,0 +1,23 @@
+career_profiles:
+  automation_data:
+    description: >
+      Junior and early-career roles combining process automation, software
+      development, APIs, Python, data processing, system integration, low-code
+      platforms and cloud technologies.
+
+  technical_project_management:
+    description: >
+      Junior technical project and implementation roles involving digital
+      products, IT systems, requirements, stakeholder coordination, delivery and
+      process improvement.
+
+  process_consulting:
+    description: >
+      Junior consulting and business-process roles focused on digital
+      transformation, process analysis, process optimization, automation
+      opportunities and technology-supported change.
+
+  data_bi:
+    description: >
+      Junior data and business intelligence roles involving data engineering,
+      ETL, SQL, reporting, analytics, dashboards and cloud data platforms.

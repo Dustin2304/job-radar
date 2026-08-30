@@ -13,6 +13,7 @@ from api.semantic_benchmark import (
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "semantic_categories.json"
+CAREER_FIXTURE = Path(__file__).parent / "fixtures" / "career_profiles.json"
 
 
 def test_committed_semantic_dataset_has_balanced_valid_cases():
@@ -87,6 +88,31 @@ def test_regression_metrics_exclude_no_fit_cases_from_ranking_accuracy():
         "top2_recall": 1.0,
         "mean_best_primary_rank": pytest.approx(4 / 3),
     }
+
+
+def test_committed_career_profile_dataset_has_expected_coverage():
+    cases = load_regression_cases(
+        CAREER_FIXTURE,
+        category_names=[
+            "automation_data",
+            "technical_project_management",
+            "process_consulting",
+            "data_bi",
+        ],
+    )
+
+    assert len(cases) == 24
+    assert Counter(case.group for case in cases) == {
+        "automation_data": 4,
+        "technical_project_management": 4,
+        "process_consulting": 4,
+        "data_bi": 4,
+        "multi_profile": 6,
+        "no_profile_fit": 2,
+    }
+    assert sum(len(case.expected_primary) > 1 for case in cases) == 6
+    assert sum(case.taxonomy_fit == "none" for case in cases) == 2
+    assert all(case.semantic_summary for case in cases)
 
 
 def test_case_schema_rejects_labels_for_no_fit_case():

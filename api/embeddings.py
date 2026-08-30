@@ -14,10 +14,14 @@ from urllib.request import Request, urlopen
 
 import yaml
 
-from .models import CategoryMatch, Job
+from .models import CategoryMatch, Job, ProfileMatch
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CATEGORIES_PATH = ROOT / "config" / "categories.yaml"
+DEFAULT_CAREER_PROFILES_PATH = ROOT / "config" / "career_profiles.yaml"
+PROFILE_MATCH_INSTRUCTION = (
+    "Given a job posting, identify the career directions that best match it"
+)
 
 EmbeddingStatus = Literal["success", "unavailable", "error"]
 
@@ -152,24 +156,34 @@ def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
     return max(-1.0, min(1.0, dot_product / (left_norm * right_norm)))
 
 
+def _load_definitions(path: Path, root_key: str) -> dict[str, str]:
+    with path.open(encoding="utf-8") as handle:
+        document = yaml.safe_load(handle) or {}
+    raw_definitions = document.get(root_key, {})
+    if not isinstance(raw_definitions, Mapping) or not raw_definitions:
+        raise ValueError(f"{path.name} must define at least one {root_key} entry")
+
+    definitions: dict[str, str] = {}
+    for name, definition in raw_definitions.items():
+        if not isinstance(definition, Mapping):
+            raise ValueError(f"{root_key} entry {name!r} must be a mapping")
+        description = str(definition.get("description", "")).strip()
+        if not description:
+            raise ValueError(f"{root_key} entry {name!r} requires a description")
+        definitions[str(name)] = description
+    return definitions
+
+
 def load_category_definitions(
     path: Path = DEFAULT_CATEGORIES_PATH,
 ) -> dict[str, str]:
-    with path.open(encoding="utf-8") as handle:
-        document = yaml.safe_load(handle) or {}
-    raw_categories = document.get("categories", {})
-    if not isinstance(raw_categories, Mapping) or not raw_categories:
-        raise ValueError("categories.yaml must define at least one category")
+    return _load_definitions(path, "categories")
 
-    categories: dict[str, str] = {}
-    for name, definition in raw_categories.items():
-        if not isinstance(definition, Mapping):
-            raise ValueError(f"category {name!r} must be a mapping")
-        description = str(definition.get("description", "")).strip()
-        if not description:
-            raise ValueError(f"category {name!r} requires a description")
-        categories[str(name)] = description
-    return categories
+
+def load_career_profile_definitions(
+    path: Path = DEFAULT_CAREER_PROFILES_PATH,
+) -> dict[str, str]:
+    return _load_definitions(path, "career_profiles")
 
 
 class SemanticCategoryClassifier:
@@ -210,23 +224,20 @@ class SemanticCategoryClassifier:
             self._category_vectors = dict(zip(self.categories, vectors, strict=True))
         return self._category_vectors
 
-    def classify(self, job: Job) -> Job:
+    def _calculate_matches(
+        self,
+        job: Job,
+        match_model: type[CategoryMatch] | type[ProfileMatch],
+    ) -> tuple[EmbeddingStatus, str, list[CategoryMatch] | list[ProfileMatch]]:
         embedding_input = (
             "title_and_description"
             if job.description_status == "available" and job.description
             else "title_only"
         )
-        base_update = {
-            "categories": [],
-            "embedding_input": embedding_input,
-            "embedding_model": self.client.model,
-        }
 
         cooldown_status = self._failure_in_cooldown()
         if cooldown_status is not None:
-            return job.model_copy(
-                update={**base_update, "embedding_status": cooldown_status}
-            )
+            return cooldown_status, embedding_input, []
 
         try:
             category_vectors = self._get_category_vectors()
@@ -237,7 +248,7 @@ class SemanticCategoryClassifier:
 
             title_vector = job_vectors[0]
             description_vector = job_vectors[1] if len(job_vectors) == 2 else None
-            matches: list[CategoryMatch] = []
+            matches = []
             for name, category_vector in category_vectors.items():
                 title_similarity = cosine_similarity(title_vector, category_vector)
                 description_similarity = (
@@ -256,7 +267,7 @@ class SemanticCategoryClassifier:
                         + self.settings.description_weight * description_similarity
                     ) / weight_total
                 matches.append(
-                    CategoryMatch(
+                    match_model(
                         name=name,
                         similarity=combined,
                         title_similarity=title_similarity,
@@ -266,23 +277,59 @@ class SemanticCategoryClassifier:
         except EmbeddingServiceUnavailable:
             status: EmbeddingStatus = "unavailable"
             self._last_failure = (time.monotonic(), status)
-            return job.model_copy(update={**base_update, "embedding_status": status})
+            return status, embedding_input, []
         except (EmbeddingResponseError, ValueError, KeyError, TypeError):
             status = "error"
             self._last_failure = (time.monotonic(), status)
-            return job.model_copy(update={**base_update, "embedding_status": status})
+            return status, embedding_input, []
 
         matches.sort(key=lambda match: match.similarity, reverse=True)
+        return "success", embedding_input, matches
+
+    def classify(self, job: Job) -> Job:
+        status, embedding_input, matches = self._calculate_matches(job, CategoryMatch)
         return job.model_copy(
             update={
-                **base_update,
                 "categories": matches,
-                "embedding_status": "success",
+                "embedding_input": embedding_input,
+                "embedding_model": self.client.model,
+                "embedding_status": status,
+            }
+        )
+
+
+class SemanticProfileClassifier(SemanticCategoryClassifier):
+    """Match canonical jobs to career directions without changing job selection."""
+
+    def __init__(
+        self,
+        *,
+        client: EmbeddingClient,
+        profiles: Mapping[str, str],
+        settings: EmbeddingSettings,
+        failure_retry_seconds: float = 30,
+    ) -> None:
+        super().__init__(
+            client=client,
+            categories=profiles,
+            settings=settings,
+            failure_retry_seconds=failure_retry_seconds,
+        )
+
+    def classify(self, job: Job) -> Job:
+        status, embedding_input, matches = self._calculate_matches(job, ProfileMatch)
+        return job.model_copy(
+            update={
+                "profile_matches": matches,
+                "profile_embedding_input": embedding_input,
+                "profile_embedding_model": self.client.model,
+                "profile_embedding_status": status,
             }
         )
 
 
 _CLASSIFIER_CACHE: dict[tuple[object, ...], SemanticCategoryClassifier] = {}
+_PROFILE_CLASSIFIER_CACHE: dict[tuple[object, ...], SemanticProfileClassifier] = {}
 
 
 def get_semantic_classifier(
@@ -316,13 +363,54 @@ def get_semantic_classifier(
     return classifier
 
 
+def get_semantic_profile_classifier(
+    config: Mapping[str, object] | None,
+) -> SemanticProfileClassifier | None:
+    settings = EmbeddingSettings.from_config(config)
+    if not settings.enabled:
+        return None
+    if not settings.model:
+        raise ValueError("an embedding model is required when embeddings are enabled")
+
+    profile_settings = EmbeddingSettings(
+        enabled=settings.enabled,
+        base_url=settings.base_url,
+        model=settings.model,
+        dimensions=settings.dimensions,
+        title_weight=settings.title_weight,
+        description_weight=settings.description_weight,
+        instruction=PROFILE_MATCH_INSTRUCTION,
+        timeout_seconds=settings.timeout_seconds,
+    )
+    profiles = load_career_profile_definitions()
+    key = (profile_settings, tuple(profiles.items()))
+    classifier = _PROFILE_CLASSIFIER_CACHE.get(key)
+    if classifier is None:
+        client = LMStudioEmbeddingClient(
+            base_url=profile_settings.base_url,
+            model=profile_settings.model,
+            dimensions=profile_settings.dimensions,
+            timeout_seconds=profile_settings.timeout_seconds,
+        )
+        classifier = SemanticProfileClassifier(
+            client=client,
+            profiles=profiles,
+            settings=profile_settings,
+        )
+        _PROFILE_CLASSIFIER_CACHE[key] = classifier
+    return classifier
+
+
 __all__ = [
     "EmbeddingResponseError",
     "EmbeddingServiceUnavailable",
     "EmbeddingSettings",
     "LMStudioEmbeddingClient",
     "SemanticCategoryClassifier",
+    "SemanticProfileClassifier",
     "cosine_similarity",
     "get_semantic_classifier",
+    "get_semantic_profile_classifier",
+    "load_career_profile_definitions",
     "load_category_definitions",
 ]

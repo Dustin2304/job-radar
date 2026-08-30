@@ -10,7 +10,9 @@ from api.embeddings import (
     EmbeddingSettings,
     LMStudioEmbeddingClient,
     SemanticCategoryClassifier,
+    SemanticProfileClassifier,
     cosine_similarity,
+    load_career_profile_definitions,
     load_category_definitions,
 )
 from api.normalization import normalize_job
@@ -203,6 +205,77 @@ def test_semantic_category_configuration_is_complete():
         "consulting",
     }
     assert all(description.strip() for description in categories.values())
+
+
+def test_career_profile_configuration_is_complete():
+    profiles = load_career_profile_definitions()
+
+    assert set(profiles) == {
+        "automation_data",
+        "technical_project_management",
+        "process_consulting",
+        "data_bi",
+    }
+    assert all(description.strip() for description in profiles.values())
+
+
+def test_profile_matches_use_separate_status_and_weighted_similarities():
+    client = QueueEmbeddingClient(
+        [
+            [[1, 0], [0, 1]],
+            [[1, 0], [0, 1]],
+        ]
+    )
+    classifier = SemanticProfileClassifier(
+        client=client,
+        profiles={"automation_data": "Automation", "data_bi": "Data"},
+        settings=settings(),
+    )
+    canonical_job = job(description="Build data pipelines.").model_copy(
+        update={"embedding_status": "success"}
+    )
+
+    classified = classifier.classify(canonical_job)
+
+    assert classified.embedding_status == "success"
+    assert classified.profile_embedding_status == "success"
+    assert classified.profile_embedding_input == "title_and_description"
+    assert classified.profile_embedding_model == client.model
+    assert [match.name for match in classified.profile_matches] == [
+        "data_bi",
+        "automation_data",
+    ]
+    assert classified.profile_matches[0].similarity == pytest.approx(0.6)
+    assert classified.profile_matches[0].title_similarity == pytest.approx(0)
+    assert classified.profile_matches[0].description_similarity == pytest.approx(1)
+
+    result = to_v1_job_result(
+        classified,
+        profile="Discovery",
+        level="Entry",
+        in_watchlist=False,
+    )
+    assert result.profile_embedding_status == "success"
+    assert result.profile_matches == classified.profile_matches
+    assert "embedding" not in result.model_dump()["profile_matches"][0]
+
+
+def test_profile_failure_does_not_overwrite_category_status():
+    classifier = SemanticProfileClassifier(
+        client=QueueEmbeddingClient(
+            [EmbeddingServiceUnavailable("LM Studio is not running")]
+        ),
+        profiles={"automation_data": "Automation"},
+        settings=settings(),
+    )
+
+    classified = classifier.classify(
+        job().model_copy(update={"embedding_status": "success"})
+    )
+
+    assert classified.embedding_status == "success"
+    assert classified.profile_embedding_status == "unavailable"
+    assert classified.profile_matches == []
 
 
 def test_invalid_embedding_weights_are_rejected():

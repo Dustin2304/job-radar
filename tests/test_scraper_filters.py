@@ -144,6 +144,10 @@ def test_run_scrape_keeps_v1_response_contract(monkeypatch):
         "embedding_input",
         "embedding_model",
         "embedding_status",
+        "profile_matches",
+        "profile_embedding_input",
+        "profile_embedding_model",
+        "profile_embedding_status",
         "score",
         "score_reason",
     }
@@ -153,6 +157,8 @@ def test_run_scrape_keeps_v1_response_contract(monkeypatch):
     assert response.jobs[0].pre_score_components is not None
     assert response.jobs[0].embedding_status == "unavailable"
     assert response.jobs[0].categories == []
+    assert response.jobs[0].profile_embedding_status == "unavailable"
+    assert response.jobs[0].profile_matches == []
     assert response.description_stats.model_dump() == {
         "total": 2,
         "available": 2,

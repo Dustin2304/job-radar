@@ -39,6 +39,10 @@ def to_v1_job_result(
         embedding_input=job.embedding_input,
         embedding_model=job.embedding_model,
         embedding_status=job.embedding_status,
+        profile_matches=job.profile_matches,
+        profile_embedding_input=job.profile_embedding_input,
+        profile_embedding_model=job.profile_embedding_model,
+        profile_embedding_status=job.profile_embedding_status,
         score=round(job.pre_score or 0),
         score_reason=summarize_pre_score(job.pre_score_components),
     )

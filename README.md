@@ -6,19 +6,20 @@ A personal job radar for junior-to-mid roles that scrapes Indeed and LinkedIn vi
 - Runs broad discovery queries from `config.yaml` across configured locations.
 - Excludes only clear seniority and unsuitable employment-type title patterns before scoring.
 - Calculates an explainable component-based `0-100` pre-score without using it as an acceptance gate.
-- Adds semantic role-category similarities through an optional local LM Studio embedding service.
+- Adds semantic role-category and career-profile similarities through an optional local LM Studio embedding service.
 - Serves fresh, cached, and aggregated results through FastAPI endpoints backed by a local JSON cache.
 
 ## Architecture
 ```text
 config.yaml --> scraper orchestration --> JobSpy source --> normalization --> canonical Job
                                                                             --> hard filter --> pre-score
-                                                                                               --> semantic categories --> V1 adapter --> /jobs
-                                                                                                                           |
-                                                                                                                   JSON cache
-                                                                                                                           |
-                                                                                                                           v
-                                                                                                      n8n --> Ollama reranking --> HTML email
+                                                                                               --> semantic categories
+                                                                                               --> career profiles --> V1 adapter --> /jobs
+                                                                                                                     |
+                                                                                                             JSON cache
+                                                                                                                     |
+                                                                                                                     v
+                                                                                                n8n --> Ollama reranking --> HTML email
 ```
 The API scoring step is rule-based on purpose: it is deterministic, free to run, and easy to test. That makes it a good fit for a local screening service with transparent ranking logic. Optional LLM-based reranking is included in the `n8n/` workflow as a downstream presentation layer, not as part of the API scoring logic.
 
@@ -221,6 +222,23 @@ reports Top-1 accuracy, Top-2 recall, and mean best-primary rank. The baseline i
 .venv\Scripts\python.exe scripts\evaluate_semantic_regression.py
 ```
 
+## Career Profile Matching
+
+V2.6 adds career-profile similarities alongside semantic categories. Categories
+describe the role; profiles describe its proximity to one of four target career
+directions configured in `config/career_profiles.yaml`. Both layers use the same
+local model and title/description weighting but retain separate matches, input
+metadata, and service status. Profile matches never reject a job or alter its
+pre-score.
+
+The committed 24-case benchmark reaches 21/22 Top-1 and 22/22 Top-2 on labelled
+profile matches. The full benchmark and 16-job live sample are documented in
+[`docs/career-profile-validation-v2.6.md`](docs/career-profile-validation-v2.6.md).
+
+```powershell
+.venv\Scripts\python.exe scripts\evaluate_career_profiles.py
+```
+
 ## Description Data Quality
 
 Canonical jobs retain `description_status`, normalized `description_length`, and `description_source`. Missing descriptions never reject a job. Every scrape reports overall and per-source availability through `description_stats`.
@@ -237,7 +255,7 @@ A live sample on 2026-08-30 produced:
 No request errors or HTTP 429 responses occurred in these small samples. The enriched LinkedIn run was roughly 12 times slower than the equivalent normal run, so `linkedin_fetch_description` remains disabled by default. The planned embedding rule is explicit: missing descriptions use `title_only`; available descriptions use `title_and_description`. Blanket enrichment is deferred in favor of targeted enrichment after a later preselection step.
 
 ## Tests
-The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, semantic cosine similarity and weighting, cached category vectors, regression-dataset validation and ranking metrics, embedding-service failure fallback, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
+The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, semantic cosine similarity and weighting, cached category and career-profile vectors, regression-dataset validation and ranking metrics, independent embedding-service failure states, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
 
 ## Limitations
 - Focused on German/DACH search coverage, currently configured around Karlsruhe, Germany.
@@ -255,7 +273,7 @@ api/
   main.py          # FastAPI app + endpoints
   scraper.py       # broad search orchestration and hard-filter integration
   scorer.py        # explainable component-based pre-score
-  embeddings.py    # LM Studio client + cached semantic category classification
+  embeddings.py    # LM Studio client + cached category/profile matching
   models.py        # canonical and V1 response models
   normalization.py # raw source data to canonical Job
   compatibility.py # canonical Job to existing V1 API response
@@ -266,14 +284,17 @@ api/
 config.yaml     # discovery, filters, signals, scoring, and embedding settings
 config/
   categories.yaml # semantic category descriptions
+  career_profiles.yaml # target career-direction descriptions
 docs/
   semantic-validation-v2.5.1.md # first real-model validation report
   semantic-validation-v2.5.2.md # category calibration report
   semantic-regression-v2.5.3.md # frozen benchmark baseline
+  career-profile-validation-v2.6.md # profile benchmark and live validation
 n8n/            # sanitized workflow + n8n-specific docs
 scripts/
   evaluate_semantic_categories.py # reproducible reference/live semantic evaluation
   evaluate_semantic_regression.py # frozen labelled benchmark evaluation
+  evaluate_career_profiles.py # career-profile benchmark and optional live sample
 tests/          # pytest suite
 pyproject.toml
 ```

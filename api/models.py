@@ -13,7 +13,9 @@ class CategoryMatch(BaseModel):
 
 class ProfileMatch(BaseModel):
     name: str
-    similarity: float
+    similarity: float = Field(ge=-1, le=1)
+    title_similarity: float = Field(ge=-1, le=1)
+    description_similarity: float | None = Field(default=None, ge=-1, le=1)
 
 
 class ScoreComponent(BaseModel):
@@ -107,6 +109,9 @@ class Job(BaseModel):
     embedding_model: str | None = None
     embedding_status: Literal["success", "unavailable", "error"] = "unavailable"
     profile_matches: list[ProfileMatch] = Field(default_factory=list)
+    profile_embedding_input: Literal["title_only", "title_and_description"] | None = None
+    profile_embedding_model: str | None = None
+    profile_embedding_status: Literal["success", "unavailable", "error"] = "unavailable"
 
     hard_filter_passed: bool = True
     rejection_reasons: list[FilterReason] = Field(default_factory=list)
@@ -149,6 +154,13 @@ class JobResult(BaseModel):
     embedding_input: Literal["title_only", "title_and_description"] | None = None
     embedding_model: str | None = None
     embedding_status: Literal["success", "unavailable", "error"] = "unavailable"
+    profile_matches: list[ProfileMatch] = Field(
+        default_factory=list,
+        description="Career-profile similarities, sorted from strongest to weakest",
+    )
+    profile_embedding_input: Literal["title_only", "title_and_description"] | None = None
+    profile_embedding_model: str | None = None
+    profile_embedding_status: Literal["success", "unavailable", "error"] = "unavailable"
     score: int = Field(default=0, description="Legacy n8n-compatible alias of the rounded pre-score")
     score_reason: str = Field(default="", description="Legacy n8n-compatible pre-score component summary")
 

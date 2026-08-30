@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 import yaml
 
 from .compatibility import to_v1_job_result
-from .embeddings import get_semantic_classifier
+from .embeddings import get_semantic_classifier, get_semantic_profile_classifier
 from .filters import apply_filter_result, evaluate_hard_filters
 from .models import Job, JobResult, ScrapeResponse
 from .normalization import clean_string, merge_search_queries, normalize_job
@@ -115,6 +115,7 @@ def run_scrape() -> ScrapeResponse:
     signals: dict = cfg.get("signals", {})
     pre_score_config: dict = cfg.get("pre_score", {})
     semantic_classifier = get_semantic_classifier(cfg.get("embeddings"))
+    profile_classifier = get_semantic_profile_classifier(cfg.get("embeddings"))
     config_excludes = cfg.get("hard_filters", {}).get("excluded_title_terms", [])
 
     seen_urls: set[str] = set()
@@ -237,6 +238,8 @@ def run_scrape() -> ScrapeResponse:
                     canonical_job = apply_pre_score(canonical_job, pre_score_result)
                     if semantic_classifier is not None:
                         canonical_job = semantic_classifier.classify(canonical_job)
+                    if profile_classifier is not None:
+                        canonical_job = profile_classifier.classify(canonical_job)
                     canonical_jobs_by_url[raw_url] = canonical_job
 
                     job = to_v1_job_result(
