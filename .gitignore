@@ -15,6 +15,7 @@ env/
 .pytest_cache/
 cache/*
 !cache/.gitkeep
+data/evaluation/
 *.json.bak
 
 *.egg-info/

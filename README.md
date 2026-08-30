@@ -205,10 +205,20 @@ The weights and English task instruction are configurable. Qwen3-Embedding-0.6B 
 
 If the server cannot be reached, the model is unavailable, or a response is invalid, each job remains in the result with empty `categories` and `embedding_status` set to `unavailable` or `error`. Successful results expose `embedding_input` as either `title_only` or `title_and_description` and identify the configured model. A similarity threshold is deliberately absent until real-job calibration has been completed.
 
-The first live Qwen validation is documented in [`docs/semantic-validation-v2.5.1.md`](docs/semantic-validation-v2.5.1.md). It includes five reference titles and 30 deduplicated real jobs. The current finding is that the model is viable, while the automation and process-management descriptions need calibration before Career Profiles are added. The reusable evaluator prints results without persisting raw descriptions or vectors:
+The initial live validation and category calibration are documented in [`docs/semantic-validation-v2.5.1.md`](docs/semantic-validation-v2.5.1.md) and [`docs/semantic-validation-v2.5.2.md`](docs/semantic-validation-v2.5.2.md). The reusable live evaluator prints results without persisting raw descriptions or vectors:
 
 ```powershell
 .venv\Scripts\python.exe scripts\evaluate_semantic_categories.py --live --results-per-query 5 --limit 30
+```
+
+V2.5.3 adds a committed 30-case semantic regression fixture with explicit primary,
+acceptable secondary, multi-category, and no-taxonomy-fit labels. Its evaluator
+reports Top-1 accuracy, Top-2 recall, and mean best-primary rank. The baseline is
+25/27 Top-1 and 26/27 Top-2; details are in
+[`docs/semantic-regression-v2.5.3.md`](docs/semantic-regression-v2.5.3.md).
+
+```powershell
+.venv\Scripts\python.exe scripts\evaluate_semantic_regression.py
 ```
 
 ## Description Data Quality
@@ -227,14 +237,14 @@ A live sample on 2026-08-30 produced:
 No request errors or HTTP 429 responses occurred in these small samples. The enriched LinkedIn run was roughly 12 times slower than the equivalent normal run, so `linkedin_fetch_description` remains disabled by default. The planned embedding rule is explicit: missing descriptions use `title_only`; available descriptions use `title_and_description`. Blanket enrichment is deferred in favor of targeted enrichment after a later preselection step.
 
 ## Tests
-The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, semantic cosine similarity and weighting, cached category vectors, embedding-service failure fallback, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
+The test suite covers canonical normalization, stable IDs, JobSpy isolation, structured hard-filter reasons, broad discovery without keyword gates, all pre-score components, semantic cosine similarity and weighting, cached category vectors, regression-dataset validation and ranking metrics, embedding-service failure fallback, V1 compatibility, `nan` normalization, level inference, and model defaults. Run it with `pytest tests/ -v`.
 
 ## Limitations
 - Focused on German/DACH search coverage, currently configured around Karlsruhe, Germany.
 - Depends on `python-jobspy`, so rate limits and source-site markup changes can affect Indeed and LinkedIn scraping.
 - Some source results omit the full description. They remain eligible and are explicitly measured through description metadata and per-source statistics.
 - LinkedIn detail enrichment is deliberately disabled by default because the measured sample was substantially slower and larger runs may encounter rate limits.
-- Semantic categories remain uncalibrated observational signals and never gate a job in V2.5.
+- Semantic categories remain observational signals and never gate a job in V2.5.
 - Local semantic classification requires a running LM Studio server and a matching configured embedding model; service failure is nonfatal.
 - No persistence layer beyond a local file cache.
 - No authentication on the FastAPI endpoints; intended for local or internal use.
@@ -251,15 +261,19 @@ api/
   compatibility.py # canonical Job to existing V1 API response
   filters.py        # explainable high-confidence hard exclusions
   observability.py  # description availability summaries by source
+  semantic_benchmark.py # persisted semantic labels and ranking metrics
   sources/jobspy.py # JobSpy-specific fetching
 config.yaml     # discovery, filters, signals, scoring, and embedding settings
 config/
   categories.yaml # semantic category descriptions
 docs/
   semantic-validation-v2.5.1.md # first real-model validation report
+  semantic-validation-v2.5.2.md # category calibration report
+  semantic-regression-v2.5.3.md # frozen benchmark baseline
 n8n/            # sanitized workflow + n8n-specific docs
 scripts/
   evaluate_semantic_categories.py # reproducible reference/live semantic evaluation
+  evaluate_semantic_regression.py # frozen labelled benchmark evaluation
 tests/          # pytest suite
 pyproject.toml
 ```

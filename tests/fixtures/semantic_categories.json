@@ -1,0 +1,272 @@
+[
+  {
+    "id": "junior-automation-engineer",
+    "group": "automation",
+    "title": "Junior Automation Engineer",
+    "semantic_summary": "Builds workflow automations, API integrations and low-code solutions.",
+    "expected_primary": ["automation"],
+    "acceptable_secondary": ["data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "ai-automation-engineer",
+    "group": "automation",
+    "title": "AI & Automation Engineer",
+    "semantic_summary": "Implements software-based automation with scripts, APIs and AI services.",
+    "expected_primary": ["automation"],
+    "acceptable_secondary": ["data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "network-automation-engineer",
+    "group": "automation",
+    "title": "Network Automation Engineer",
+    "semantic_summary": "Automates network configuration and operations through Python and APIs.",
+    "expected_primary": ["automation"],
+    "acceptable_secondary": ["data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "rpa-developer",
+    "group": "automation",
+    "title": "RPA Developer",
+    "semantic_summary": "Develops and maintains robotic process automation workflows.",
+    "expected_primary": ["automation"],
+    "acceptable_secondary": ["process_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "data-engineer",
+    "group": "data_bi",
+    "title": "Data Engineer",
+    "semantic_summary": "Builds ETL pipelines, data platforms and reliable database integrations.",
+    "expected_primary": ["data"],
+    "acceptable_secondary": ["business_intelligence"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "snowflake-data-engineer",
+    "group": "data_bi",
+    "title": "Snowflake Data Engineer",
+    "semantic_summary": "Develops cloud data pipelines and warehouse models on Snowflake.",
+    "expected_primary": ["data"],
+    "acceptable_secondary": ["business_intelligence"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "business-intelligence-analyst",
+    "group": "data_bi",
+    "title": "Business Intelligence Analyst",
+    "semantic_summary": "Creates dashboards, reporting models and business performance analyses.",
+    "expected_primary": ["business_intelligence"],
+    "acceptable_secondary": ["data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "power-bi-developer",
+    "group": "data_bi",
+    "title": "Power BI Developer",
+    "semantic_summary": "Builds Power BI reports, semantic models and data visualizations.",
+    "expected_primary": ["business_intelligence"],
+    "acceptable_secondary": ["data"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "business-process-analyst",
+    "group": "process_management",
+    "title": "Business Process Analyst",
+    "semantic_summary": "Analyzes, documents and redesigns organizational business processes.",
+    "expected_primary": ["process_management"],
+    "acceptable_secondary": ["business_intelligence"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "continuous-improvement-specialist",
+    "group": "process_management",
+    "title": "Continuous Improvement Specialist",
+    "semantic_summary": "Improves operational processes and establishes continuous improvement practices.",
+    "expected_primary": ["process_management"],
+    "acceptable_secondary": ["project_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "business-analyst-workflow-management",
+    "group": "process_management",
+    "title": "Business Analyst Workflowmanagementsystem",
+    "semantic_summary": "Analyzes workflow requirements and designs improved business processes.",
+    "expected_primary": ["process_management"],
+    "acceptable_secondary": ["business_intelligence", "automation"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "process-owner-operational-excellence",
+    "group": "process_management",
+    "title": "Process Owner Operational Excellence",
+    "semantic_summary": "Owns process governance, process design and operational excellence standards.",
+    "expected_primary": ["process_management"],
+    "acceptable_secondary": ["project_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "supply-chain-planner",
+    "group": "supply_chain",
+    "title": "Supply Chain Planner",
+    "semantic_summary": "Plans supply, inventory and material availability across the supply chain.",
+    "expected_primary": ["supply_chain"],
+    "acceptable_secondary": ["project_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "production-planner",
+    "group": "supply_chain",
+    "title": "Production Planner",
+    "semantic_summary": "Coordinates production plans, material demand and inventory levels.",
+    "expected_primary": ["supply_chain"],
+    "acceptable_secondary": ["project_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "digital-procurement-analyst",
+    "group": "supply_chain",
+    "title": "Digital Procurement Analyst",
+    "semantic_summary": "Analyzes purchasing data and improves digital procurement operations.",
+    "expected_primary": ["supply_chain"],
+    "acceptable_secondary": ["process_management", "business_intelligence"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "demand-supply-planner",
+    "group": "supply_chain",
+    "title": "Planner Product Portfolio Demand & Supply",
+    "semantic_summary": "Balances demand forecasts, supply plans and product inventory.",
+    "expected_primary": ["supply_chain"],
+    "acceptable_secondary": ["business_intelligence"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "it-consultant-digital-transformation",
+    "group": "consulting",
+    "title": "IT Consultant Digital Transformation",
+    "semantic_summary": "Advises clients on IT strategy and digital transformation programs.",
+    "expected_primary": ["consulting"],
+    "acceptable_secondary": ["project_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "digital-transformation-consultant",
+    "group": "consulting",
+    "title": "Consultant AI & Digital Transformation",
+    "semantic_summary": "Consults organizations on AI adoption and digital operating models.",
+    "expected_primary": ["consulting"],
+    "acceptable_secondary": ["automation"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "technology-strategy-consultant",
+    "group": "consulting",
+    "title": "Technology Strategy Consultant",
+    "semantic_summary": "Develops technology strategies and transformation roadmaps for clients.",
+    "expected_primary": ["consulting"],
+    "acceptable_secondary": ["project_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "digital-project-manager",
+    "group": "project_management",
+    "title": "Digital Project Manager",
+    "semantic_summary": "Plans digital projects and coordinates scope, delivery and stakeholders.",
+    "expected_primary": ["project_management"],
+    "acceptable_secondary": ["consulting"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "technical-project-coordinator",
+    "group": "project_management",
+    "title": "Technical Project Coordinator",
+    "semantic_summary": "Coordinates technical workstreams, schedules, risks and project reporting.",
+    "expected_primary": ["project_management"],
+    "acceptable_secondary": ["consulting"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "it-implementation-project-manager",
+    "group": "project_management",
+    "title": "IT Implementation Project Manager",
+    "semantic_summary": "Manages an IT implementation from requirements through delivery.",
+    "expected_primary": ["project_management"],
+    "acceptable_secondary": ["consulting"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "business-process-consultant",
+    "group": "multi_category",
+    "title": "Business Process Consultant",
+    "semantic_summary": "Advises clients on business process analysis and process redesign.",
+    "expected_primary": ["consulting", "process_management"],
+    "acceptable_secondary": ["automation"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "uipath-business-analyst",
+    "group": "multi_category",
+    "title": "UiPath Business Analyst",
+    "semantic_summary": "Identifies automation opportunities and translates processes into RPA requirements.",
+    "expected_primary": ["automation", "process_management"],
+    "acceptable_secondary": ["consulting"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "order-management-process-optimization",
+    "group": "multi_category",
+    "title": "Order Management Specialist - Process Optimization",
+    "semantic_summary": "Improves order-management workflows and operational fulfillment processes.",
+    "expected_primary": ["process_management", "supply_chain"],
+    "acceptable_secondary": ["project_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "data-bi-engineer",
+    "group": "multi_category",
+    "title": "Data Engineer - Business Intelligence",
+    "semantic_summary": "Builds data pipelines and reporting models for business intelligence.",
+    "expected_primary": ["data", "business_intelligence"],
+    "acceptable_secondary": [],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "automation-consultant",
+    "group": "multi_category",
+    "title": "Business Automation Consultant",
+    "semantic_summary": "Advises clients and implements workflow automation and system integrations.",
+    "expected_primary": ["consulting", "automation"],
+    "acceptable_secondary": ["process_management"],
+    "taxonomy_fit": "matched"
+  },
+  {
+    "id": "field-operations-associate",
+    "group": "no_taxonomy_fit",
+    "title": "Field Operations Associate",
+    "semantic_summary": "Supports day-to-day field activities, site readiness and operational logistics.",
+    "expected_primary": [],
+    "acceptable_secondary": [],
+    "taxonomy_fit": "none"
+  },
+  {
+    "id": "frontend-engineer-annotation-platform",
+    "group": "no_taxonomy_fit",
+    "title": "Frontend Engineer - Annotation Platform",
+    "semantic_summary": "Develops user interfaces and frontend components for an annotation product.",
+    "expected_primary": [],
+    "acceptable_secondary": [],
+    "taxonomy_fit": "none"
+  },
+  {
+    "id": "hr-payroll-specialist",
+    "group": "no_taxonomy_fit",
+    "title": "HR Payroll Specialist",
+    "semantic_summary": "Processes payroll and supports employees with compensation administration.",
+    "expected_primary": [],
+    "acceptable_secondary": [],
+    "taxonomy_fit": "none"
+  }
+]
