@@ -1,37 +1,291 @@
 facts:
   education:
-    - degree: "Bachelor International Management"
+    - degree: "Bachelor of Science"
+      field: "International Management"
+      institution_type: "University of Applied Sciences"
+      period: "2021-03 to 2026-09"
+      status: "completed_or_near_completion"
+
+  languages:
+    german: "native"
+    english: "C1"
 
   experience:
-    - area: "process_automation"
-      level: "practical"
-      details:
+    - id: "bosch_logistics_internship"
+      type: "internship"
+      area: "logistics_planning_and_supply_chain"
+      period: "2025-03 to 2025-08"
+      responsibilities:
+        - "Analysis and improvement of logistics processes"
+        - "Development and use of Power BI reporting for logistics processes"
+        - "Partial automation of complaint-related data processing with Python"
+        - "Digitalization of logistics sub-processes using Power Apps"
+        - "Definition and documentation of processes and work standards"
+        - "Work on a human-forklift warning system"
+      technologies:
+        - "Python"
+        - "Power BI"
+        - "Power Apps"
+      domains:
+        - "logistics"
+        - "supply chain"
+        - "process improvement"
+        - "reporting"
+        - "automation"
+
+    - id: "bosch_working_student_application_development"
+      type: "working_student"
+      area: "application_development_and_technical_project_environment"
+      period: "2025-09 to 2026-02"
+      responsibilities:
+        - "Development of internal applications and automation solutions"
+        - "Implementation of data-processing and system-integration logic"
+        - "Development of tools supporting internal business processes"
+      projects:
+        - name: "Sample Shipping Tool"
+          purpose: >
+            Automation and support of an internal document and shipping workflow.
+          technologies:
+            - "Python"
+            - "Vue.js"
+            - "SQLite"
+            - "openpyxl"
+            - "pywin32"
+          activities:
+            - "Application development"
+            - "Workflow automation"
+            - "Excel and Office integration"
+            - "Structured data handling"
+
+        - name: "Master Data Application"
+          purpose: >
+            Application for checking and processing master data with
+            data preparation and rule-based matching logic.
+          technologies:
+            - "Python"
+            - "React"
+            - "pandas"
+            - "pywin32"
+          activities:
+            - "Data validation"
+            - "Data transformation"
+            - "Rule-based matching"
+            - "Application development"
+            - "Office integration"
+      domains:
+        - "application development"
+        - "process automation"
+        - "data processing"
+        - "system integration"
+
+    - id: "bosch_bachelor_thesis"
+      type: "bachelor_thesis"
+      area: "reporting_automation_and_generative_ai"
+      period: "2026-04 to 2026-09"
+      topic: "Automation of reporting processes with generative AI"
+      responsibilities:
+        - "Design of an automated reporting process"
+        - "Rule-based preparation of material and reporting data"
+        - "Integration of generative AI into reporting workflows"
+        - "Use of LLM-based workflows"
+        - "Use of retrieval-augmented generation concepts"
+        - "Evaluation of automation architectures and implementation approaches"
+        - "Combination of deterministic processing and generative AI"
+      technologies:
         - "Power Automate"
         - "Power Apps"
         - "Copilot Studio"
-        - "n8n"
-        - "APIs"
+      concepts:
+        - "Generative AI"
+        - "LLM workflows"
+        - "RAG"
+        - "process automation"
+        - "reporting automation"
+        - "low-code"
+        - "deterministic data processing"
+      domains:
+        - "automation"
+        - "reporting"
+        - "generative AI"
+        - "business processes"
+        - "technical implementation"
 
-    - area: "application_development"
-      details:
+  personal_projects:
+    - id: "n8n_job_radar"
+      name: "n8n Job Radar"
+      purpose: >
+        Automated job discovery and evaluation system combining
+        job-source retrieval, a Python/FastAPI backend, n8n workflows
+        and local AI models.
+      technologies:
         - "Python"
-        - "TypeScript"
-        - "ETL"
+        - "FastAPI"
+        - "n8n"
         - "REST APIs"
+        - "local LLMs"
+      demonstrated_skills:
+        - "API development"
+        - "workflow automation"
+        - "data normalization"
+        - "job-data processing"
+        - "LLM integration"
+        - "structured AI evaluation"
+      current_architecture_topics:
+        - "hard filtering"
+        - "deterministic pre-scoring"
+        - "semantic embeddings"
+        - "semantic job categorization"
+        - "career-profile matching"
+        - "structured LLM evaluation"
 
-    - area: "data_reporting"
-      details:
-        - "Power BI"
-        - "Power Query"
-        - "Dataverse"
+skills:
+  programming:
+    python:
+      evidence_level: "practical_project_experience"
+      evidence:
+        - "Bosch logistics automation"
+        - "Sample Shipping Tool"
+        - "Master Data Application"
+        - "Job Radar"
+        - "FastAPI projects"
+    typescript:
+      evidence_level: "project_experience"
+    javascript:
+      evidence_level: "project_experience"
+    sql:
+      evidence_level: "project_experience"
+
+  backend_and_apis:
+    fastapi:
+      evidence_level: "practical_project_experience"
+    rest_apis:
+      evidence_level: "practical_project_experience"
+    system_integration:
+      evidence_level: "practical_project_experience"
+
+  frontend:
+    react:
+      evidence_level: "project_experience"
+    vue_js:
+      evidence_level: "project_experience"
+
+  data:
+    etl:
+      evidence_level: "practical_project_experience"
+    pandas:
+      evidence_level: "project_experience"
+    sqlite:
+      evidence_level: "project_experience"
+    power_bi:
+      evidence_level: "practical_project_experience"
+    power_query:
+      evidence_level: "practical_project_experience"
+    dataverse:
+      evidence_level: "practical_project_experience"
+
+  automation_and_low_code:
+    power_automate:
+      evidence_level: "strong_practical_project_experience"
+    power_apps:
+      evidence_level: "practical_project_experience"
+    copilot_studio:
+      evidence_level: "practical_project_experience"
+    n8n:
+      evidence_level: "practical_project_experience"
+    workflow_automation:
+      evidence_level: "strong_practical_project_experience"
+
+  ai:
+    generative_ai:
+      evidence_level: "practical_project_and_thesis_experience"
+    llm_workflows:
+      evidence_level: "practical_project_and_thesis_experience"
+    rag:
+      evidence_level: "thesis_experience"
+    prompt_engineering:
+      evidence_level: "practical_experience"
+    embeddings:
+      evidence_level: "practical_project_experience"
+
+  tooling:
+    git:
+      evidence_level: "practical_project_experience"
+    github:
+      evidence_level: "practical_project_experience"
+    docker:
+      evidence_level: "practical_experience"
+    openpyxl:
+      evidence_level: "project_experience"
+    pywin32:
+      evidence_level: "project_experience"
+
+professional_strengths:
+  - "Combination of business-process understanding and technical implementation"
+  - "Automation of manual and reporting processes"
+  - "Structured data processing and integration"
+  - "Ability to work across business and technical contexts"
+  - "Independent familiarization with new technical topics"
+  - "Structured and systematic problem solving"
+  - "Solution-oriented and self-directed working style"
 
 preferences:
   target_seniority:
-    - "junior"
-    - "entry_level"
-
+    preferred:
+      - "entry_level"
+      - "junior"
   target_directions:
-    - "automation"
-    - "data"
-    - "technical_project_management"
-    - "process_consulting"
+    primary:
+      - "process automation"
+      - "business automation"
+      - "data and reporting automation"
+      - "technical process implementation"
+      - "data engineering"
+      - "business intelligence"
+    secondary:
+      - "technical project management"
+      - "digital transformation"
+      - "process consulting"
+  preferred_role_characteristics:
+    - "Combination of technology and business processes"
+    - "Automation or digitalization responsibilities"
+    - "Data, reporting, API or integration components"
+    - "Technical implementation rather than purely conceptual work"
+    - "Opportunity to work across business and IT"
+  work_environment:
+    preferred_region: "Karlsruhe region"
+    hybrid: true
+
+evaluation_guidance:
+  candidate_fact_policy:
+    - >
+      Only information explicitly contained in this profile may be treated
+      as factual candidate experience.
+    - >
+      Do not infer experience with a technology merely because it is related
+      to another listed technology.
+    - >
+      If a required technology is not listed, classify it as unknown or missing.
+  experience_rules:
+    - >
+      Distinguish mandatory professional-experience requirements from
+      preferred or ideal experience.
+    - >
+      Entry-level and junior roles remain relevant even when first practical
+      experience is requested.
+    - >
+      Requirements phrased as preferred, ideal or advantageous should not
+      be treated like mandatory requirements.
+  skill_rules:
+    - >
+      Distinguish must-have requirements from nice-to-have requirements.
+    - >
+      Missing nice-to-have skills should normally have a smaller impact than
+      missing mandatory skills.
+    - >
+      Consider transferable experience where the technical concepts are
+      clearly related, but do not claim direct experience that is not present
+      in the candidate facts.
+  evaluation_goal: >-
+    Assess whether applying to the position is reasonable for an early-career
+    candidate with practical experience in process automation, application
+    development, data/reporting and generative-AI-supported workflows.

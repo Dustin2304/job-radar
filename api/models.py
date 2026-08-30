@@ -10,27 +10,101 @@ class StrictModel(BaseModel):
 
 class CandidateEducation(StrictModel):
     degree: str = Field(min_length=1)
+    field: str = Field(min_length=1)
+    institution_type: str = Field(min_length=1)
+    period: str = Field(min_length=1)
+    status: str = Field(min_length=1)
+
+
+class CandidateProject(StrictModel):
+    name: str = Field(min_length=1)
+    purpose: str = Field(min_length=1)
+    technologies: list[str] = Field(default_factory=list)
+    activities: list[str] = Field(default_factory=list)
 
 
 class CandidateExperience(StrictModel):
+    id: str = Field(min_length=1)
+    type: str = Field(min_length=1)
     area: str = Field(min_length=1)
-    level: str | None = None
-    details: list[str] = Field(min_length=1)
+    period: str = Field(min_length=1)
+    topic: str | None = None
+    responsibilities: list[str] = Field(default_factory=list)
+    technologies: list[str] = Field(default_factory=list)
+    projects: list[CandidateProject] = Field(default_factory=list)
+    concepts: list[str] = Field(default_factory=list)
+    domains: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def contains_concrete_work(self):
+        if not self.responsibilities and not self.projects:
+            raise ValueError("candidate experience requires responsibilities or projects")
+        return self
+
+
+class CandidatePersonalProject(StrictModel):
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    purpose: str = Field(min_length=1)
+    technologies: list[str] = Field(default_factory=list)
+    demonstrated_skills: list[str] = Field(default_factory=list)
+    current_architecture_topics: list[str] = Field(default_factory=list)
+
+
+class SkillEvidence(StrictModel):
+    evidence_level: str = Field(min_length=1)
+    evidence: list[str] = Field(default_factory=list)
 
 
 class CandidateFacts(StrictModel):
-    education: list[CandidateEducation] = Field(default_factory=list)
-    experience: list[CandidateExperience] = Field(default_factory=list)
+    education: list[CandidateEducation] = Field(min_length=1)
+    languages: dict[str, str] = Field(default_factory=dict)
+    experience: list[CandidateExperience] = Field(min_length=1)
+    personal_projects: list[CandidatePersonalProject] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def identifiers_are_unique(self):
+        identifiers = [item.id for item in self.experience]
+        identifiers.extend(item.id for item in self.personal_projects)
+        if len(identifiers) != len(set(identifiers)):
+            raise ValueError("candidate experience and project IDs must be unique")
+        return self
+
+
+class CandidateTargetSeniority(StrictModel):
+    preferred: list[str] = Field(min_length=1)
+
+
+class CandidateTargetDirections(StrictModel):
+    primary: list[str] = Field(min_length=1)
+    secondary: list[str] = Field(default_factory=list)
+
+
+class CandidateWorkEnvironment(StrictModel):
+    preferred_region: str | None = None
+    hybrid: bool | None = None
 
 
 class CandidatePreferences(StrictModel):
-    target_seniority: list[str] = Field(default_factory=list)
-    target_directions: list[str] = Field(default_factory=list)
+    target_seniority: CandidateTargetSeniority
+    target_directions: CandidateTargetDirections
+    preferred_role_characteristics: list[str] = Field(default_factory=list)
+    work_environment: CandidateWorkEnvironment
+
+
+class CandidateEvaluationGuidance(StrictModel):
+    candidate_fact_policy: list[str] = Field(min_length=1)
+    experience_rules: list[str] = Field(min_length=1)
+    skill_rules: list[str] = Field(min_length=1)
+    evaluation_goal: str = Field(min_length=1)
 
 
 class CandidateProfile(StrictModel):
     facts: CandidateFacts
+    skills: dict[str, dict[str, SkillEvidence]] = Field(min_length=1)
+    professional_strengths: list[str] = Field(min_length=1)
     preferences: CandidatePreferences
+    evaluation_guidance: CandidateEvaluationGuidance
 
 
 class LLMEvaluation(StrictModel):
@@ -242,10 +316,16 @@ class ScrapeResponse(BaseModel):
 
 __all__ = [
     "CandidateEducation",
+    "CandidateEvaluationGuidance",
     "CandidateExperience",
     "CandidateFacts",
+    "CandidatePersonalProject",
     "CandidatePreferences",
     "CandidateProfile",
+    "CandidateProject",
+    "CandidateTargetDirections",
+    "CandidateTargetSeniority",
+    "CandidateWorkEnvironment",
     "CategoryMatch",
     "DescriptionSourceStats",
     "DescriptionStats",
@@ -258,5 +338,6 @@ __all__ = [
     "PreScoreResult",
     "ProfileMatch",
     "ScoreComponent",
+    "SkillEvidence",
     "ScrapeResponse",
 ]

@@ -251,8 +251,9 @@ See [`docs/career-profile-real-world-v2.6.1.md`](docs/career-profile-real-world-
 ## Structured LLM Evaluation Foundation
 
 V2.7.1 introduces the isolated foundation for a later qualitative job evaluation.
-It is not yet called by the scraping pipeline or exposed to n8n. Candidate facts and
-target preferences are validated separately from `config/candidate_profile.yaml`.
+It is not yet called by the scraping pipeline or exposed to n8n. Candidate facts,
+evidence-backed skills, professional strengths, evaluation guidance, and target
+preferences are validated separately in `config/candidate_profile.yaml`.
 The prompt passes the full normalized description, deterministic pre-score with its
 components, semantic categories, career-profile matches, and description data quality
 without combining their scores.

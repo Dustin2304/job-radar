@@ -20,8 +20,9 @@ DEFAULT_CANDIDATE_PROFILE_PATH = ROOT / "config" / "candidate_profile.yaml"
 
 SYSTEM_PROMPT = """You evaluate whether applying to a job is worthwhile for one candidate.
 
-Only information in CANDIDATE PROFILE / facts is factual candidate information.
-CANDIDATE PROFILE / preferences describes desired roles, not candidate capabilities.
+Only CANDIDATE PROFILE / facts, skills, and professional_strengths contain factual
+candidate information. CANDIDATE PROFILE / preferences describes desired roles, not
+candidate capabilities. Follow evaluation_guidance without turning it into new facts.
 Never infer candidate skills or experience from the job description, semantic matches,
 or deterministic analysis. If a mandatory requirement is unsupported by candidate
 facts, list it under missing_requirements. Do not treat nice-to-have requirements as

@@ -14,7 +14,7 @@ from api.llm_evaluation import (
     get_structured_job_evaluator,
     load_candidate_profile,
 )
-from api.models import LLMEvaluation
+from api.models import CandidateProfile, LLMEvaluation
 from api.normalization import normalize_job
 
 
@@ -72,14 +72,35 @@ class QueueChatClient:
 def test_candidate_profile_separates_facts_from_preferences():
     profile = load_candidate_profile()
 
-    assert profile.facts.education[0].degree == "Bachelor International Management"
-    assert {item.area for item in profile.facts.experience} == {
-        "process_automation",
-        "application_development",
-        "data_reporting",
+    education = profile.facts.education[0]
+    assert education.degree == "Bachelor of Science"
+    assert education.field == "International Management"
+    assert profile.facts.languages == {"german": "native", "english": "C1"}
+    assert {item.id for item in profile.facts.experience} == {
+        "bosch_logistics_internship",
+        "bosch_working_student_application_development",
+        "bosch_bachelor_thesis",
     }
-    assert profile.preferences.target_seniority == ["junior", "entry_level"]
-    assert "automation" in profile.preferences.target_directions
+    assert profile.skills["programming"]["python"].evidence_level == (
+        "practical_project_experience"
+    )
+    assert profile.preferences.target_seniority.preferred == ["entry_level", "junior"]
+    assert "process automation" in profile.preferences.target_directions.primary
+    assert profile.evaluation_guidance.candidate_fact_policy
+
+    serialized = profile.model_dump_json()
+    assert "photographer" not in serialized.lower()
+    assert "node.js" not in serialized.lower()
+
+
+def test_candidate_profile_rejects_duplicate_evidence_ids():
+    payload = load_candidate_profile().model_dump()
+    payload["facts"]["personal_projects"][0]["id"] = payload["facts"][
+        "experience"
+    ][0]["id"]
+
+    with pytest.raises(ValidationError, match="IDs must be unique"):
+        CandidateProfile.model_validate(payload)
 
 
 def test_llm_evaluation_schema_rejects_invalid_scores_and_unknown_fields():
@@ -104,7 +125,7 @@ def test_prompt_contains_full_description_and_existing_analysis():
     messages = build_evaluation_messages(job, load_candidate_profile())
 
     assert len(messages) == 2
-    assert "Only information in CANDIDATE PROFILE / facts" in messages[0]["content"]
+    assert "facts, skills, and professional_strengths" in messages[0]["content"]
     assert "END-OF-DESCRIPTION" in messages[1]["content"]
     assert '"pre_score": 67.0' in messages[1]["content"]
     assert '"required_evaluation_status": "complete"' in messages[1]["content"]
