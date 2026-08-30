@@ -94,6 +94,37 @@ model_screening:
       timeout_seconds: 120
       schema_enforcement: client_pydantic
 
+final_benchmark:
+  results_dir: data/evaluation/llm-benchmark-results
+  prompt_family: evidence_first
+  runs_per_case: 3
+  runtime_profiles:
+    - model_id: ornith-1.5-9b
+      base_url: http://127.0.0.1:1234/v1
+      transport: responses
+      reasoning_effort: minimal
+      context_length: 65536
+      temperature: 0.2
+      max_output_tokens: 8000
+      timeout_seconds: 120
+      schema_enforcement: client_pydantic
+    - model_id: ornith-1.5-35b-a3b
+      base_url: http://127.0.0.1:1234/v1
+      transport: responses
+      reasoning_effort: minimal
+      context_length: 65536
+      temperature: 0.2
+      max_output_tokens: 8000
+      timeout_seconds: 120
+      schema_enforcement: client_pydantic
+  selection:
+    efficiency_preference: ornith-1.5-9b
+    similar_accuracy_margin: 0.05
+    material_large_error_difference: 2
+    max_failure_rate: 0.02
+    max_timeout_rate: 0.0
+    max_candidate_hallucinations: 1
+
 candidate_models:
   - id: ornith-1.5-9b
     family: Ornith 1.5

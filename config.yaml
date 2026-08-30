@@ -241,12 +241,12 @@ embeddings:
     Given a job posting, identify the semantic role categories that best describe it
   timeout_seconds: 30
 
-# V2.7.1 foundation only. Pipeline integration and model selection follow after
-# a manually labelled comparison benchmark.
+# Selected by the frozen V2.7.2b-3 benchmark. Evaluation stays disabled until
+# V2.7.3 integrates it as an observational pipeline stage.
 llm_evaluation:
   enabled: false
   base_url: "http://localhost:1234/v1"
-  model: ""
+  model: "ornith-1.5-35b-a3b"
   timeout_seconds: 60
   temperature: 0.1
 

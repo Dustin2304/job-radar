@@ -384,6 +384,45 @@ is a finalist recommendation, not a final deployment model choice.
   data\evaluation\llm-benchmark-results\model-screening-run-2.json
 ```
 
+### Final Local-Model Benchmark
+
+V2.7.2b-3 compares the two finalists on all 24 frozen jobs with three runs per
+job. The evidence-first prompt, candidate profile, labels, response schema,
+65,536-token context, and 8,000-token output budget stay unchanged. Exact-profile
+observations from the prior screening are reusable; every finalist still has 72
+observations in the final result. Raw results remain private and ignored.
+
+| Metric | Ornith 9B | Ornith 35B-A3B |
+| --- | ---: | ---: |
+| Recommendation accuracy | 62.0% | 69.4% |
+| Mean ordinal error | 0.451 | 0.333 |
+| Large recommendation errors | 5 | 2 |
+| Candidate hallucinations | 0 | 1 |
+| Experience-gap accuracy | 81.1% | 88.9% |
+| Recommendation stability | 66.7% | 79.2% |
+| Fit-score MAE | 15.13 | 15.32 |
+| Median / mean latency | 38.5 / 40.1 s | 35.1 / 36.5 s |
+| Failures / timeouts | 1 / 0 | 0 / 0 |
+
+Both models marked every title-only result as preliminary. Ornith 35B-A3B was
+also more accurate and stable on that segment and invented fewer unsupported gaps
+(61.1% versus 88.9%). Must-have precision/recall was 10.3%/27.3% for 35B and
+7.9%/20.8% for 9B; nice-to-have precision/recall was 11.4%/30.2% and
+13.3%/33.9%, respectively. Gap-list overlap is therefore measured but is not a
+strong model discriminator in this benchmark.
+
+The configured default is `ornith-1.5-35b-a3b`: it makes materially fewer large
+recommendation errors, is more accurate and stable, and was slightly faster on the
+tested hardware. Model choice remains configuration, and LLM evaluation remains
+disabled until V2.7.3 pipeline integration.
+
+```powershell
+.venv\Scripts\python.exe scripts\run_llm_final_benchmark.py --dry-run
+.venv\Scripts\python.exe scripts\run_llm_final_benchmark.py `
+  --seed-from data\evaluation\llm-benchmark-results\model-screening-run-1.json `
+  --seed-from data\evaluation\llm-benchmark-results\model-screening-run-2.json
+```
+
 ## Description Data Quality
 
 Canonical jobs retain `description_status`, normalized `description_length`, and `description_source`. Missing descriptions never reject a job. Every scrape reports overall and per-source availability through `description_stats`.
@@ -409,7 +448,7 @@ The test suite covers canonical normalization, stable IDs, JobSpy isolation, str
 - LinkedIn detail enrichment is deliberately disabled by default because the measured sample was substantially slower and larger runs may encounter rate limits.
 - Semantic categories remain observational signals and never gate a job in V2.5.
 - Local semantic classification requires a running LM Studio server and a matching configured embedding model; service failure is nonfatal.
-- Structured LLM evaluation is foundation-only and disabled until the V2.7.2 model benchmark is complete.
+- Structured LLM evaluation has a benchmark-selected model but remains disabled until V2.7.3 pipeline integration.
 - No persistence layer beyond a local file cache.
 - No authentication on the FastAPI endpoints; intended for local or internal use.
 
@@ -454,6 +493,7 @@ scripts/
   calibrate_llm_runtime.py # per-model reasoning and runtime calibration
   screen_llm_models.py # frozen eight-job generic model screening
   summarize_llm_model_screening.py # repeated-run stability and finalist ranking
+  run_llm_final_benchmark.py # resumable 24-job finalist benchmark and default selection
 tests/          # pytest suite
 pyproject.toml
 ```

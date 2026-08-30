@@ -54,7 +54,7 @@ class ModelRuntimeProfile(StrictModel):
 
 
 class ModelBenchmarkObservation(StrictModel):
-    phase: Literal["runtime_calibration", "model_screening"]
+    phase: Literal["runtime_calibration", "model_screening", "final_benchmark"]
     model_id: str = Field(min_length=1)
     reasoning_effort: ReasoningEffort
     case_id: str = Field(min_length=1)
@@ -184,7 +184,7 @@ def model_screening_metrics(
 
 def evaluate_model_case(
     *,
-    phase: Literal["runtime_calibration", "model_screening"],
+    phase: Literal["runtime_calibration", "model_screening", "final_benchmark"],
     profile: ModelRuntimeProfile,
     case: LLMBenchmarkCase,
     candidate_profile: CandidateProfile,
@@ -275,6 +275,69 @@ def select_runtime_effort(
     return practical[0][0]
 
 
+def select_default_model(
+    metrics_by_model: dict[str, dict[str, object]],
+    *,
+    efficiency_preference: str,
+    similar_accuracy_margin: float,
+    material_large_error_difference: int,
+    max_failure_rate: float,
+    max_timeout_rate: float,
+    max_candidate_hallucinations: int,
+) -> tuple[str, str]:
+    """Choose a configurable default after the full finalist benchmark."""
+
+    if efficiency_preference not in metrics_by_model:
+        raise ValueError("efficiency preference is not present in benchmark metrics")
+    practical = {
+        model_id: values
+        for model_id, values in metrics_by_model.items()
+        if metric_number(values, "failure_rate", 1) <= max_failure_rate
+        and metric_number(values, "timeout_rate", 1) <= max_timeout_rate
+        and int(values.get("candidate_hallucination_count", 0))
+        <= max_candidate_hallucinations
+    }
+    if not practical:
+        raise ValueError("no technically safe finalist completed the full benchmark")
+    if len(practical) == 1:
+        model_id = next(iter(practical))
+        return model_id, "only_practical_finalist"
+
+    efficient = practical.get(efficiency_preference)
+    if efficient is None:
+        raise ValueError("efficiency preference did not complete the benchmark safely")
+    alternatives = {
+        model_id: values
+        for model_id, values in practical.items()
+        if model_id != efficiency_preference
+    }
+    best_alternative_id, best_alternative = min(
+        alternatives.items(),
+        key=lambda item: (
+            int(item[1].get("large_recommendation_errors", 0)),
+            -metric_number(item[1], "recommendation_accuracy", 0),
+            metric_number(item[1], "mean_ordinal_error", float("inf")),
+        ),
+    )
+    error_reduction = int(efficient.get("large_recommendation_errors", 0)) - int(
+        best_alternative.get("large_recommendation_errors", 0)
+    )
+    if error_reduction >= material_large_error_difference:
+        return best_alternative_id, "materially_fewer_large_errors"
+
+    accuracy_gap = metric_number(
+        best_alternative, "recommendation_accuracy", 0
+    ) - metric_number(efficient, "recommendation_accuracy", 0)
+    if accuracy_gap > similar_accuracy_margin:
+        return best_alternative_id, "meaningfully_higher_recommendation_accuracy"
+    return efficiency_preference, "similar_quality_efficiency_preference"
+
+
+def metric_number(metrics: dict[str, object], name: str, default: float) -> float:
+    value = metrics.get(name)
+    return default if value is None else float(value)
+
+
 __all__ = [
     "ModelBenchmarkObservation",
     "ModelRuntimeProfile",
@@ -284,4 +347,5 @@ __all__ = [
     "evaluate_model_case",
     "model_screening_metrics",
     "select_runtime_effort",
+    "select_default_model",
 ]

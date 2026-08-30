@@ -1,4 +1,4 @@
-from api.llm_model_screening import select_runtime_effort
+from api.llm_model_screening import select_default_model, select_runtime_effort
 
 
 def metrics(**overrides):
@@ -39,3 +39,69 @@ def test_runtime_selection_rejects_impractical_profiles():
     )
 
     assert selected is None
+
+
+def test_default_model_prefers_efficiency_for_similar_quality():
+    selected, reason = select_default_model(
+        {
+            "small": metrics(
+                recommendation_accuracy=0.72,
+                large_recommendation_errors=2,
+            ),
+            "large": metrics(
+                recommendation_accuracy=0.74,
+                large_recommendation_errors=1,
+            ),
+        },
+        efficiency_preference="small",
+        similar_accuracy_margin=0.05,
+        material_large_error_difference=2,
+        max_failure_rate=0.02,
+        max_timeout_rate=0.0,
+        max_candidate_hallucinations=1,
+    )
+
+    assert selected == "small"
+    assert reason == "similar_quality_efficiency_preference"
+
+
+def test_default_model_prefers_materially_fewer_large_errors():
+    selected, reason = select_default_model(
+        {
+            "small": metrics(large_recommendation_errors=3),
+            "large": metrics(large_recommendation_errors=1),
+        },
+        efficiency_preference="small",
+        similar_accuracy_margin=0.05,
+        material_large_error_difference=2,
+        max_failure_rate=0.02,
+        max_timeout_rate=0.0,
+        max_candidate_hallucinations=1,
+    )
+
+    assert selected == "large"
+    assert reason == "materially_fewer_large_errors"
+
+
+def test_default_model_allows_documented_small_failure_rates():
+    selected, reason = select_default_model(
+        {
+            "small": metrics(
+                failure_rate=0.014,
+                large_recommendation_errors=5,
+            ),
+            "large": metrics(
+                candidate_hallucination_count=1,
+                large_recommendation_errors=2,
+            ),
+        },
+        efficiency_preference="small",
+        similar_accuracy_margin=0.05,
+        material_large_error_difference=2,
+        max_failure_rate=0.02,
+        max_timeout_rate=0.0,
+        max_candidate_hallucinations=1,
+    )
+
+    assert selected == "large"
+    assert reason == "materially_fewer_large_errors"
