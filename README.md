@@ -497,3 +497,12 @@ scripts/
 tests/          # pytest suite
 pyproject.toml
 ```
+# Job Radar Dashboard
+
+The new German dashboard is available at **http://127.0.0.1:8001/ui/** when the
+existing API is running. It loads the cached results automatically, can trigger
+a fresh search, and adds filters, score details, browser-local bookmarks and a
+JSON import/export. The API, scoring and n8n workflow remain unchanged.
+See [dashboard usage and data connection](docs/dashboard.md).
+
+
