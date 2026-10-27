@@ -11,6 +11,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -32,6 +33,9 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+
+# Serve the dashboard from the API origin so existing endpoints need no CORS changes.
+app.mount("/ui", StaticFiles(directory=Path(__file__).parent / "web", html=True), name="dashboard")
 
 
 # ── Startup ───────────────────────────────────────────────────────────────────
@@ -110,3 +114,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
